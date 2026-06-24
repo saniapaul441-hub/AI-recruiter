@@ -51,6 +51,20 @@ This system is an intelligent candidate evaluation suite featuring:
 ## 📁 Project Structure
 AI-recruiter/ ├── app/ # FastAPI Backend Codebase │ ├── config.py # App settings & dotenv configuration │ ├── database.py # Database engine & session generator │ ├── main.py # FastAPI app setup & static route mounts │ ├── models/ # SQLAlchemy Database models (User, Job, Candidate, etc.) │ ├── routes/ # Route endpoint handlers (auth, core) │ ├── services/ # Business logic (automation, llm_router, vector_db) │ └── utils/ # Security helper utilities (JWT validation) ├── static/ # Web Portal Frontend Files │ ├── index.html & app.js # Recruiter login page & auth flow │ ├── portal.html & portal.js # Recruiter workspace dashboard │ ├── screening.html & js # Candidate AI chat interview with proctoring │ └── style.css # Custom stylesheet ├── tests/ # Diagnostic Test Suite │ └── test_parser.py # Unit tests (security, CSV parser, isolation) ├── .env # Configuration environment variables template ├── run_tests.py # Test suite runner ├── server.js # Alternative Node.js Express server └── package.json # Node.js dependencies configuration
 
+## ⚙️ Codebase Map by Feature
+
+Here is how the project's code files map directly to the system's core capabilities:
+
+| Feature Area | Backend API Endpoints | Core Processing Logic | Frontend Pages |
+| :--- | :--- | :--- | :--- |
+| **Recruiter Access & Auth** | `app/routes/auth.py` | `app/utils/security.py` | `static/index.html` |
+| **Job Description Parsing** | `POST /api/jobs` (`core.py`) | `llm_router.py` (Gemini API) | `static/portal.html` |
+| **Resume Extraction** | `POST /api/candidates/upload` | `parser.py` (CSV / Regex) | `static/portal.html` |
+| **Vector Search Matching** | `POST /api/rankings/compute` | `vector_db.py` (Local NumPy / Pinecone) | `static/portal.html` |
+| **AI Screening Interview** | `/api/interviews/results` | `llm_router.py` (Gemini) | `static/screening.html` |
+| **Cheating & Proctoring** | `POST /api/interviews/proctor` | `core.py` (Alert logger) | `static/screening.js` |
+| **Outbox & Email Delivery** | `GET /api/automation/outbox` | `automation.py` (SMTP delivery) | `static/portal.html` |
+
 
 
 ---
