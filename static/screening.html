@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AI Recruiter - Conversational Screening Room. Automated candidate screening and real-time interactive assessment portal.">
+    <title>AI Recruiter - Screening Portal</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Extra styles custom tailored to the Screening Room for maximum premium visuals */
+        body {
+            background: radial-gradient(circle at top right, rgba(121, 40, 202, 0.15), transparent),
+                        radial-gradient(circle at bottom left, rgba(0, 112, 243, 0.12), transparent),
+                        #0a0b10;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 16px;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            color: #f3f4f6;
+            margin: 0;
+        }
+        
+        .screening-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(18, 20, 29, 0.7);
+            backdrop-filter: blur(20px);
+            position: relative;
+        }
+        
+        /* Glassmorphic Top Progress Bar */
+        .progress-header {
+            background: rgba(255, 255, 255, 0.03);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 18px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .progress-banner {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .progress-title {
+            font-size: 1.15rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #f3f4f6, #9ca3af);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .progress-steps-row {
+            display: flex;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+        
+        .step-segment {
+            flex: 1;
+            text-align: center;
+            padding: 8px 4px;
+            border-radius: 6px;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+        
+        .step-segment.active {
+            background: linear-gradient(135deg, rgba(121, 40, 202, 0.35), rgba(0, 112, 243, 0.35));
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(121, 40, 202, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .step-segment.done {
+            color: var(--accent-success);
+        }
+        
+        /* Chat Content Stream */
+        .chat-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            background: radial-gradient(ellipse at 50% 50%, rgba(121, 40, 202, 0.03), transparent);
+        }
+        
+        .chat-bubble-row {
+            display: flex;
+            width: 100%;
+            gap: 12px;
+        }
+        
+        .chat-bubble-row.ai {
+            justify-content: flex-start;
+        }
+        
+        .chat-bubble-row.candidate {
+            justify-content: flex-end;
+        }
+        
+        .bubble-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #7928ca, #0070f3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 0.9rem;
+            box-shadow: 0 4px 10px rgba(121, 40, 202, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .chat-bubble-row.candidate .bubble-avatar {
+            background: linear-gradient(135deg, #0070f3, #00dfd8);
+            box-shadow: 0 4px 10px rgba(0, 112, 243, 0.3);
+            order: 2;
+        }
+        
+        .bubble-text {
+            max-width: 70%;
+            padding: 14px 18px;
+            border-radius: 16px;
+            line-height: 1.5;
+            font-size: 0.92rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            white-space: pre-wrap;
+        }
+        
+        .chat-bubble-row.ai .bubble-text {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-top-left-radius: 4px;
+        }
+        
+        .chat-bubble-row.candidate .bubble-text {
+            background: linear-gradient(135deg, #7928ca, #501d87);
+            color: #ffffff;
+            border-top-right-radius: 4px;
+            border: 1px solid rgba(255,255,255,0.06);
+            order: 1;
+        }
+        
+        /* Typist indicator */
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 6px 12px;
+        }
+        
+        .typing-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out;
+        }
+        
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        
+        @keyframes bounce {
+            0%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-6px); }
+        }
+        
+        /* Chat Input Panel */
+        .chat-footer {
+            background: rgba(255, 255, 255, 0.02);
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 20px 24px;
+        }
+        
+        .chat-input-row {
+            display: flex;
+            gap: 12px;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 6px;
+            transition: border-color 0.3s;
+        }
+        
+        .chat-input-row:focus-within {
+            border-color: var(--accent-primary-hover);
+        }
+        
+        .chat-input-field {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #ffffff;
+            padding: 10px 14px;
+            font-size: 0.95rem;
+            resize: none;
+            height: 24px;
+            font-family: inherit;
+        }
+        
+        .btn-send {
+            background: linear-gradient(135deg, #7928ca, #0070f3);
+            border: none;
+            outline: none;
+            color: white;
+            border-radius: 8px;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 10px rgba(121, 40, 202, 0.3);
+        }
+        
+        .btn-send:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 15px rgba(121, 40, 202, 0.4);
+        }
+        
+        .btn-send:disabled {
+            background: rgba(255, 255, 255, 0.05) !important;
+            color: rgba(255, 255, 255, 0.2) !important;
+            box-shadow: none !important;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        
+        /* Modal and login views */
+        .login-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(10, 11, 16, 0.96);
+            backdrop-filter: blur(25px);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 24px;
+        }
+        
+        .login-card {
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            padding: 32px;
+            border-radius: 16px;
+            background: rgba(18, 20, 29, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        /* Side-by-side screening workspace grid */
+        .screening-workspace-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+            width: 100%;
+            max-width: 1200px;
+            height: 90vh;
+            max-height: 780px;
+            z-index: 10;
+        }
+        
+        @media (min-width: 900px) {
+            .screening-workspace-grid {
+                grid-template-columns: 360px 1fr;
+            }
+        }
+        
+        /* Interactive Video Panel Styling */
+        .video-panel {
+            background: rgba(18, 20, 29, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(20px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            height: 100%;
+        }
+        
+        .video-panel-header {
+            padding: 18px 20px;
+            background: rgba(255, 255, 255, 0.03);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .video-status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--accent-danger, #ef4444);
+            border-radius: 50%;
+            animation: pulse-glow 1.5s infinite ease-in-out;
+        }
+        
+        @keyframes pulse-glow {
+            0% { transform: scale(0.9); opacity: 0.5; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            50% { transform: scale(1.1); opacity: 1; box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+            100% { transform: scale(0.9); opacity: 0.5; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        
+        .video-status-text {
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            color: #ffffff;
+            text-transform: uppercase;
+        }
+        
+        .video-badge {
+            font-size: 0.7rem;
+            background: rgba(0, 112, 243, 0.15);
+            color: #0070f3;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-weight: 700;
+            border: 1px solid rgba(0, 112, 243, 0.25);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .video-container {
+            flex: 1;
+            background: #07080c;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        #webcam-stream {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); /* mirror effect */
+        }
+        
+        /* Face scanning animations */
+        .face-scan-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            z-index: 5;
+            transition: opacity 0.5s ease;
+            opacity: 0; /* starts hidden until camera loads */
+        }
+        
+        .scan-line {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(to right, transparent, #00dfd8, transparent);
+            box-shadow: 0 0 10px #00dfd8, 0 0 20px rgba(0, 223, 216, 0.5);
+            animation: scan-move 4s infinite ease-in-out;
+        }
+        
+        @keyframes scan-move {
+            0% { top: 0%; }
+            50% { top: 100%; }
+            100% { top: 0%; }
+        }
+        
+        .corner {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(0, 223, 216, 0.6);
+        }
+        .corner-tl { top: 16px; left: 16px; border-right: none; border-bottom: none; }
+        .corner-tr { top: 16px; right: 16px; border-left: none; border-bottom: none; }
+        .corner-bl { bottom: 16px; left: 16px; border-right: none; border-top: none; }
+        .corner-br { bottom: 16px; right: 16px; border-left: none; border-top: none; }
+        
+        .scan-target {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            color: rgba(0, 223, 216, 0.85);
+            text-shadow: 0 0 8px rgba(0, 223, 216, 0.5);
+        }
+        
+        .face-mesh-icon {
+            font-size: 2.2rem;
+            animation: rotate-slow 10s infinite linear;
+        }
+        
+        @keyframes rotate-slow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        .scan-status-text {
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+        
+        /* Offline camera placeholder */
+        .webcam-placeholder {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(circle, #161824 0%, #0c0d15 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 2;
+            padding: 24px;
+            text-align: center;
+        }
+        
+        .placeholder-avatar {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(121, 40, 202, 0.1), rgba(0, 112, 243, 0.1));
+            border: 1px dashed rgba(255, 255, 255, 0.15);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.8rem;
+            color: rgba(255, 255, 255, 0.3);
+            margin-bottom: 14px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        }
+        
+        .placeholder-text {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #ffffff;
+            margin: 0 0 6px 0;
+        }
+        
+        .placeholder-subtext {
+            font-size: 0.72rem;
+            color: var(--text-muted, #9ca3af);
+            line-height: 1.4;
+        }
+        
+        /* Video panel footer and controls */
+        .video-panel-footer {
+            padding: 16px 20px;
+            background: rgba(255, 255, 255, 0.02);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .audio-level-visualizer {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .audio-label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: var(--text-muted, #9ca3af);
+            letter-spacing: 0.05em;
+        }
+        
+        .audio-bars {
+            display: flex;
+            align-items: flex-end;
+            gap: 3px;
+            height: 16px;
+            width: 40px;
+        }
+        
+        .audio-bar {
+            width: 3px;
+            height: 10%;
+            background: linear-gradient(to top, #00dfd8, #7928ca);
+            border-radius: 1px;
+            transition: height 0.1s ease;
+        }
+        
+        .video-controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn-control {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.03);
+            color: rgba(255, 255, 255, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-control:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+            transform: scale(1.05);
+        }
+        
+        .btn-control.active {
+            background: linear-gradient(135deg, rgba(121, 40, 202, 0.2), rgba(0, 112, 243, 0.2));
+            border-color: rgba(0, 223, 216, 0.3);
+            color: #00dfd8;
+            box-shadow: 0 0 10px rgba(0, 223, 216, 0.15);
+        }
+        
+        .btn-control.active:hover {
+            box-shadow: 0 0 15px rgba(0, 223, 216, 0.3);
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- LOGIN OVERLAY -->
+    <div class="login-overlay" id="login-overlay">
+        <div class="login-card">
+            <i class="fa-solid fa-wand-magic-sparkles" style="font-size: 2.5rem; color: #7928ca; margin-bottom: 16px;"></i>
+            <h3 style="font-size: 1.4rem; font-weight: 700; margin-bottom: 8px;">AI Screening Portal</h3>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 24px;">
+                Enter your Candidate ID to launch your conversational screening interview.
+            </p>
+            <div class="form-group">
+                <input type="text" id="candidate-id-input" class="input-field" placeholder="Candidate ID (e.g. 1)" style="text-align: center; font-weight: 600; background: rgba(0,0,0,0.25);">
+            </div>
+            <button onclick="startInterviewSession()" class="btn-primary" style="margin-top: 16px; width: 100%;">
+                Launch Screening Round
+            </button>
+            <p style="margin-top: 24px; font-size: 0.82rem; margin-bottom: 0;">
+                <a href="/static/index.html" style="color: #00dfd8; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-arrow-left"></i> Return to Dashboard
+                </a>
+            </p>
+        </div>
+    </div>
+
+    <!-- MAIN WORKSPACE GRID -->
+    <div class="screening-workspace-grid">
+        
+        <!-- INTERACTIVE VIDEO PANEL -->
+        <div class="video-panel" id="video-panel">
+            <div class="video-panel-header">
+                <div class="video-status-indicator">
+                    <span class="pulse-dot"></span>
+                    <span class="video-status-text">LIVE STREAM</span>
+                </div>
+                <div class="video-badge">
+                    <i class="fa-solid fa-shield-halved"></i> AI PROCTORED
+                </div>
+            </div>
+            
+            <div class="video-container">
+                <!-- Live HTML5 Webcam Stream -->
+                <video id="webcam-stream" autoplay playsinline muted></video>
+                
+                <!-- Biometric Canvas Mesh -->
+                <canvas id="biometric-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 4; pointer-events: none; transform: scaleX(-1);"></canvas>
+                
+                <!-- Real-time Telemetry Board -->
+                <div id="telemetry-board" style="position: absolute; top: 12px; left: 12px; right: 12px; background: rgba(10, 11, 16, 0.75); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 10px; z-index: 6; backdrop-filter: blur(10px); display: none; grid-template-columns: repeat(2, 1fr); gap: 6px; font-size: 0.7rem; color: #f3f4f6; pointer-events: none; text-align: left;">
+                    <div><span style="color: #9ca3af;">Expression:</span> <strong id="telemetry-expression" style="color: #00dfd8;">Neutral</strong></div>
+                    <div><span style="color: #9ca3af;">Gaze:</span> <strong id="telemetry-gaze" style="color: #3b82f6;">Center</strong></div>
+                    <div><span style="color: #9ca3af;">Engagement:</span> <strong id="telemetry-engagement" style="color: #10b981;">95%</strong></div>
+                    <div><span style="color: #9ca3af;">Heart Rate:</span> <strong id="telemetry-hr" style="color: #ef4444;">72 BPM</strong></div>
+                </div>
+                
+                <!-- Face Scan Laser & Corner Overlay -->
+                <div class="face-scan-overlay" id="face-scanner">
+                    <div class="scan-line"></div>
+                    <div class="corner corner-tl"></div>
+                    <div class="corner corner-tr"></div>
+                    <div class="corner corner-bl"></div>
+                    <div class="corner corner-br"></div>
+                    
+                    <div class="scan-target">
+                        <i class="fa-solid fa-expand face-mesh-icon"></i>
+                        <span class="scan-status-text">BIOMETRICS MONITORING</span>
+                    </div>
+                </div>
+                
+                <!-- Webcam Offline Fallback -->
+                <div class="webcam-placeholder" id="webcam-fallback">
+                    <div class="placeholder-avatar">
+                        <i class="fa-solid fa-user-shield"></i>
+                    </div>
+                    <p class="placeholder-text">Camera Feed Offline</p>
+                    <span class="placeholder-subtext">Accept permissions or toggle the camera button to enable video proctoring.</span>
+                </div>
+            </div>
+            
+            <div class="video-panel-footer">
+                <div class="audio-level-visualizer">
+                    <span class="audio-label">AUDIO DETECTED</span>
+                    <div class="audio-bars">
+                        <div class="audio-bar" style="height: 10%;"></div>
+                        <div class="audio-bar" style="height: 10%;"></div>
+                        <div class="audio-bar" style="height: 10%;"></div>
+                        <div class="audio-bar" style="height: 10%;"></div>
+                        <div class="audio-bar" style="height: 10%;"></div>
+                        <div class="audio-bar" style="height: 10%;"></div>
+                    </div>
+                </div>
+                
+                <div class="video-controls">
+                    <button class="btn-control active" id="toggle-camera-btn" onclick="toggleWebcam()" title="Toggle Camera">
+                        <i class="fa-solid fa-video"></i>
+                    </button>
+                    <button class="btn-control active" id="toggle-mic-btn" onclick="toggleMic()" title="Toggle Microphone">
+                        <i class="fa-solid fa-microphone"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- EXISTING CONVERSATIONAL ROUND CONTAINER -->
+        <div class="screening-container">
+            <!-- PROGRESS HEADER BAR -->
+            <header class="progress-header">
+                <div class="progress-banner">
+                    <div class="progress-title">
+                        <i class="fa-solid fa-robot" style="color: #7928ca;"></i>
+                        <span>Conversational AI Screening Round</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <button id="simulate-demo-btn" onclick="simulateNextDemoStep()" style="font-size: 0.72rem; background: linear-gradient(135deg, #0070f3, #00dfd8); color: #ffffff; border: none; padding: 5px 12px; border-radius: 20px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 10px rgba(0, 112, 243, 0.25); display: none; align-items: center; gap: 4px; font-family: inherit;">
+                            <i class="fa-solid fa-play"></i> Auto-Fill Answer
+                        </button>
+                        <span style="font-size: 0.78rem; background: rgba(0, 223, 216, 0.1); color: #00dfd8; padding: 4px 10px; border-radius: 12px; font-weight: 700;">
+                            LIVE SECURE
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="progress-steps-row">
+                    <div class="step-segment active" id="step-segment-1">
+                        Step 1/3: Introduction
+                    </div>
+                    <div class="step-segment" id="step-segment-2">
+                        Step 2/3: Behavioral Fit
+                    </div>
+                    <div class="step-segment" id="step-segment-3">
+                        Step 3/3: Technical Design
+                    </div>
+                </div>
+            </header>
+            
+            <!-- CHAT DISPLAY AREA -->
+            <main class="chat-content" id="chat-stream">
+                <div class="glass-panel" style="padding: 14px 20px; border-color: rgba(0, 223, 216, 0.15); background: rgba(0, 223, 216, 0.02); text-align: center; border-radius: 12px; margin-bottom: 4px; flex-shrink: 0;">
+                    <p style="font-size: 0.8rem; color: #00dfd8; line-height: 1.45; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0;">
+                        <i class="fa-solid fa-circle-info"></i>
+                        Session is live. Dialogue answers are analyzed and synced in real-time.
+                    </p>
+                </div>
+                <!-- Populated dynamically via WebSockets -->
+            </main>
+            
+            <!-- TYPING INDICATOR -->
+            <div id="ai-typing-bar" style="display: none; padding-left: 32px; background: transparent; border: none; margin-bottom: 8px;">
+                <div class="chat-bubble-row ai">
+                    <div class="bubble-avatar">
+                        <i class="fa-solid fa-robot" style="font-size: 0.75rem;"></i>
+                    </div>
+                    <div class="typing-indicator">
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- INPUT AREA -->
+            <footer class="chat-footer">
+                <div class="chat-input-row" style="position: relative;">
+                    <textarea id="chat-text-input" class="chat-input-field" placeholder="Type your response here..." disabled onkeydown="handleInputKey(event)"></textarea>
+                    <button id="chat-mic-btn" class="btn-send" style="background: rgba(255, 255, 255, 0.05); color: rgba(255, 255, 255, 0.7); margin-right: 4px; box-shadow: none; width: 44px; height: 44px; flex-shrink: 0;" onclick="toggleSpeechRecognition()" title="Voice Input (Speech-to-Text)">
+                        <i class="fa-solid fa-microphone"></i>
+                    </button>
+                    <button id="chat-send-btn" class="btn-send" disabled onclick="sendCandidateMessage()" style="width: 44px; height: 44px; flex-shrink: 0;">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </div>
+            </footer>
+        </div>
+        
+    </div>
+
+    <!-- JS Logic -->
+    <script src="screening.js"></script>
+</body>
+</html>

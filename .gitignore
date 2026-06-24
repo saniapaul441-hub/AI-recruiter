@@ -1,0 +1,7 @@
+.env
+venv/
+node_modules/
+recruiter.db
+local_vector_cache.json
+__pycache__/
+*.pyc
