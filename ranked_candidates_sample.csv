@@ -1,0 +1,6 @@
+Rank,Candidate Name,Email,Phone,Match Score (%),Status,Skills
+1,"Alice Smith","alice.smith@gmail.com","+1 (555) 019-2834",92%,"pending","Python, FastAPI, SQLAlchemy, PostgreSQL, Docker, AWS, Redis, Git"
+2,"Diana Prince","diana.prince@capitalone.com","+1 (555) 014-9844",88.5%,"pending","Python, System Design, Engineering Leadership, Agile, GCP, PostgreSQL, Kubernetes"
+3,"Bob Johnson","bob.johnson@dataops.org","+1 (555) 012-7634",62.5%,"pending","Python, Apache Spark, Pandas, SQL, Hadoop, Tableau, Git"
+4,"Charlie Brown","charlie.brown@yahoo.com","+1 (555) 018-3647",44%,"pending","Python, Flask, HTML, CSS, JavaScript, Git, SQLite"
+5,"Evan Wright","evan.wright@creativeweb.io","+1 (555) 019-3388",32%,"pending","React, JavaScript, Next.js, Tailwind CSS, HTML5, UX Design"
