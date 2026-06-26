@@ -25,27 +25,7 @@ def send_smtp_email(to_email: str, subject: str, body: str, config_user=None, em
         sender = config_user.smtp_from or user
         smtp_configured = True
         print(f"Using recruiter-specific SMTP credentials ({user}) for {to_email}")
-    else:
-        # Fallback: Query database for first user with custom SMTP credentials configured
-        try:
-            from app.database import SessionLocal
-            db = SessionLocal()
-            db_recruiter = db.query(User).filter(
-                User.smtp_host.isnot(None),
-                User.smtp_username.isnot(None),
-                User.smtp_password.isnot(None)
-            ).first()
-            if db_recruiter:
-                host = db_recruiter.smtp_host
-                port = db_recruiter.smtp_port or 587
-                user = db_recruiter.smtp_username
-                password = db_recruiter.smtp_password
-                sender = db_recruiter.smtp_from or user
-                smtp_configured = True
-                print(f"Using database fallback SMTP credentials ({user}) for {to_email}")
-            db.close()
-        except Exception as db_err:
-            print(f"Failed to query database fallback SMTP credentials: {db_err}")
+
 
     # 2. Fall back to global configuration if database lookup yielded nothing
     if not smtp_configured:

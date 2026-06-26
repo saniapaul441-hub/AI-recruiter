@@ -8,6 +8,7 @@ let currentJobId = "";
 let currentAIBubble = null;
 let currentStepNum = 1;
 let step1Clicks = 0;
+let interviewActive = false;
 
 let localStream = null;
 let cameraActive = false;
@@ -92,14 +93,14 @@ function setupTabSwitchProctoring() {
 
     // Detect tab switching (visibility change)
     document.addEventListener("visibilitychange", () => {
-        if (document.visibilityState === "hidden" && cameraActive) {
+        if (document.visibilityState === "hidden" && cameraActive && interviewActive) {
             handleProctoringViolation("tab_switch");
         }
     });
 
     // Detect focus loss (window blur)
     window.addEventListener("blur", () => {
-        if (cameraActive) {
+        if (cameraActive && interviewActive) {
             handleProctoringViolation("window_blur");
         }
     });
@@ -356,9 +357,6 @@ async function startInterviewSession() {
     // Hide overlay
     document.getElementById("login-overlay").style.display = "none";
     
-    const demoBtn = document.getElementById("simulate-demo-btn");
-    if (demoBtn) demoBtn.style.display = "inline-flex";
-    
     // Initialize WebRTC Webcam & Mic
     await initWebcam();
     
@@ -376,6 +374,7 @@ async function startInterviewSession() {
     // Set up WebSocket events
     ws.onopen = () => {
         console.log("WebSocket secure screening room connected.");
+        interviewActive = true;
     };
     
     ws.onmessage = (event) => {
@@ -478,6 +477,7 @@ async function startInterviewSession() {
 }
 
 function cleanupSessionState() {
+    interviewActive = false;
     if (ws) {
         const tempWs = ws;
         ws = null; // Set to null first to avoid recursion in onclose!
@@ -501,9 +501,6 @@ function cleanupSessionState() {
     cameraActive = false;
     updateCameraUI();
     stopListening();
-    
-    const demoBtn = document.getElementById("simulate-demo-btn");
-    if (demoBtn) demoBtn.style.display = "none";
     
     // Restore input disabled state
     disableInput(true);
@@ -895,7 +892,7 @@ function initSpeechRecognition() {
     }
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     recognition = new SpeechRecognition();
-    recognition.continuous = false; 
+    recognition.continuous = true; 
     recognition.interimResults = false;
     recognition.lang = 'en-US';
 
@@ -914,16 +911,26 @@ function initSpeechRecognition() {
         const inputField = document.getElementById("chat-text-input");
         if (transcript && inputField) {
             inputField.value += (inputField.value ? ' ' : '') + transcript;
-            // Trigger input resize or height adjustment if necessary
+            // Dispatch input event so that text area resizing / auto-height works
+            inputField.dispatchEvent(new Event('input', { bubbles: true }));
         }
     };
 
     recognition.onerror = (event) => {
         console.error("Speech recognition error:", event.error);
+        if (event.error === 'no-speech') {
+            console.log("No speech was detected. Continuing to listen...");
+            return;
+        }
+        if (event.error === 'aborted') {
+            console.log("Speech recognition aborted.");
+            return;
+        }
+        
         if (event.error === 'not-allowed') {
             alert("Microphone permission was denied. Please allow microphone permissions in your browser's site settings to use speech-to-text.");
-        } else if (event.error === 'no-speech') {
-            console.log("No speech was detected.");
+        } else if (event.error === 'network') {
+            alert("Speech recognition network error: Google voice service could not be reached. Please check your internet connection or type your response.");
         } else {
             alert("Voice input error: " + event.error);
         }
@@ -931,8 +938,18 @@ function initSpeechRecognition() {
     };
 
     recognition.onend = () => {
-        isListening = false;
-        updateSpeechButtonState();
+        // Auto-restart if we are still supposed to be listening (e.g. didn't call stopListening)
+        if (isListening) {
+            try {
+                recognition.start();
+            } catch (e) {
+                console.error("Failed to restart speech recognition:", e);
+                isListening = false;
+                updateSpeechButtonState();
+            }
+        } else {
+            updateSpeechButtonState();
+        }
     };
 }
 
@@ -945,20 +962,29 @@ function toggleSpeechRecognition() {
         return;
     }
     if (isListening) {
-        recognition.stop();
+        stopListening();
     } else {
+        isListening = true;
         try {
             recognition.start();
         } catch (e) {
             console.error("Failed to start speech recognition:", e);
+            isListening = false;
+            updateSpeechButtonState();
         }
     }
 }
 
 function stopListening() {
-    if (recognition && isListening) {
-        recognition.stop();
+    isListening = false;
+    if (recognition) {
+        try {
+            recognition.stop();
+        } catch (e) {
+            console.error("Error stopping recognition:", e);
+        }
     }
+    updateSpeechButtonState();
 }
 
 function updateSpeechButtonState() {

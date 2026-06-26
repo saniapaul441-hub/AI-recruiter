@@ -489,30 +489,22 @@ class LLMRouterService:
         else:
             return (
                 "Excellent! That completely wraps up our conversational screening round. I have successfully analyzed "
-                "your communication skills, technical confidence, and role alignment metrics. Our TA team will follow "
+        "your communication skills, technical confidence, and role alignment metrics. Our TA team will follow "
                 "up with you very shortly. Have a wonderful day!"
             )
 
     def analyze_introduction(self, candidate_name: str, job_title: str, accumulated_text: str) -> dict:
-        """Analyze accumulated introduction text and verify if candidate answered all 7 required items."""
+        """Analyze accumulated introduction text and verify if candidate answered all 3 required items."""
         if not self.api_key_configured:
             # Fallback heuristic checker
             missing = []
             text_lower = accumulated_text.lower()
             if not any(x in text_lower for x in ["name", "role", "work as", "myself", "i am", "developer", "engineer"]):
                 missing.append("Name and current role")
-            if not any(x in text_lower for x in ["study", "degree", "university", "college", "graduate", "major", "bachelor", "master", "science"]):
-                missing.append("Educational background")
-            if not any(x in text_lower for x in ["skill", "python", "javascript", "tech", "react", "fastapi", "django", "postgres", "sql", "git", "docker"]):
-                missing.append("Skills")
-            if not any(x in text_lower for x in ["experience", "work", "project", "build", "develop", "freelance", "job", "intern"]):
-                missing.append("Experience / projects")
-            if not any(x in text_lower for x in ["achieve", "win", "certification", "certify", "award", "success", "result", "accomplish", "score"]):
-                missing.append("Achievements")
-            if not any(x in text_lower for x in ["interested", "excite", "why", "opportunity", "love to", "attract", "role"]):
-                missing.append("Why you're interested in this role")
-            if not any(x in text_lower for x in ["look", "growth", "learn", "contribution", "goal", "seek", "want to"]):
-                missing.append("What you're looking for")
+            if not any(x in text_lower for x in ["skill", "python", "javascript", "tech", "react", "fastapi", "django", "postgres", "sql", "git", "docker", "c++", "java", "html", "css"]):
+                missing.append("Skills / tech stack")
+            if not any(x in text_lower for x in ["experience", "work", "project", "build", "develop", "freelance", "job", "intern", "study", "degree", "university", "college", "graduate", "major", "bachelor", "master"]):
+                missing.append("Experience or educational background")
                 
             completed = len(missing) == 0
             if completed:
@@ -527,7 +519,7 @@ class LLMRouterService:
 
         system_instruction = (
             "You are an expert executive recruiter conducting the introductory phase of an interview. "
-            "Analyze the candidate's introduction text(s) so far and identify which of the 7 required items are present or missing."
+            "Analyze the candidate's introduction text(s) so far and identify which of the 3 required items are present or missing."
         )
 
         prompt = f"""
@@ -539,27 +531,24 @@ class LLMRouterService:
         {accumulated_text}
         ---
 
-        Verify if the candidate has answered all of the following 7 required items. Be strict: each item must be answered with relevant context, not just one word or generic placeholders.
+        Verify if the candidate has answered all of the following 3 required items. Be strict: each item must be answered with relevant context, not just one word or generic placeholders.
         1. Name and current role (Who they are and what they do right now)
-        2. Educational background (Briefly mention their field of study - just 1 line)
-        3. Skills (The main skills relevant to the job they are applying for)
-        4. Experience / projects (Any work experience, freelance work, or personal projects they've done)
-        5. Achievements (Any notable wins - certifications, completed projects, positive results)
-        6. Why they are interested in this role (What excites them about this specific opportunity)
-        7. What they are looking for (Their goal - growth, learning, contribution)
+        2. Skills / tech stack (The main tools, languages, and frameworks they know)
+        3. Experience or educational background (Any study background, projects built, or work experience)
 
         Return a JSON object with this EXACT structure:
         {{
             "completed": false,
             "missing_items": [
                 "Name and current role",
-                "Educational background",
-                ... (only list items from the 7 that are NOT yet answered or need details)
+                "Skills / tech stack",
+                "Experience or educational background"
+                ... (only list items from the 3 that are NOT yet answered or need details)
             ],
             "next_question": "A warm, natural, and conversational question asking the candidate to provide the missing items. You must explicitly mention which of the missing questions/items are still left to answer. Keep it brief (2-3 sentences)."
         }}
 
-        If ALL 7 items have been answered, set "completed" to true, "missing_items" to an empty array [], and "next_question" to an empty string "".
+        If ALL 3 items have been answered, set "completed" to true, "missing_items" to an empty array [], and "next_question" to an empty string "".
         
         Return ONLY the raw JSON object. Do not wrap in markdown code blocks.
         """
@@ -582,18 +571,10 @@ class LLMRouterService:
             text_lower = accumulated_text.lower()
             if not any(x in text_lower for x in ["name", "role", "work as", "myself", "i am", "developer", "engineer"]):
                 missing.append("Name and current role")
-            if not any(x in text_lower for x in ["study", "degree", "university", "college", "graduate", "major", "bachelor", "master", "science"]):
-                missing.append("Educational background")
-            if not any(x in text_lower for x in ["skill", "python", "javascript", "tech", "react", "fastapi", "django", "postgres", "sql", "git", "docker"]):
-                missing.append("Skills")
-            if not any(x in text_lower for x in ["experience", "work", "project", "build", "develop", "freelance", "job", "intern"]):
-                missing.append("Experience / projects")
-            if not any(x in text_lower for x in ["achieve", "win", "certification", "certify", "award", "success", "result", "accomplish", "score"]):
-                missing.append("Achievements")
-            if not any(x in text_lower for x in ["interested", "excite", "why", "opportunity", "love to", "attract", "role"]):
-                missing.append("Why you're interested in this role")
-            if not any(x in text_lower for x in ["look", "growth", "learn", "contribution", "goal", "seek", "want to"]):
-                missing.append("What you're looking for")
+            if not any(x in text_lower for x in ["skill", "python", "javascript", "tech", "react", "fastapi", "django", "postgres", "sql", "git", "docker", "c++", "java", "html", "css"]):
+                missing.append("Skills / tech stack")
+            if not any(x in text_lower for x in ["experience", "work", "project", "build", "develop", "freelance", "job", "intern", "study", "degree", "university", "college", "graduate", "major", "bachelor", "master"]):
+                missing.append("Experience or educational background")
                 
             completed = len(missing) == 0
             if completed:

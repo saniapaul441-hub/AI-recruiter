@@ -306,7 +306,7 @@ def get_candidate(candidate_id: int, db: Session = Depends(get_db), current_user
 @router.post("/rankings/compute/{job_id}", response_model=List[RankingResponse])
 def compute_rankings(
     job_id: int, 
-    linked_only: bool = Query(False),
+    linked_only: bool = Query(True),
     db: Session = Depends(get_db), 
     current_user: User = Depends(require_recruiter)
 ):

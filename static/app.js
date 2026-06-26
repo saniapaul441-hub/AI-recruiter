@@ -286,7 +286,7 @@ function handleLogout() {
     const toggleContainer = document.getElementById("linked-only-toggle-container");
     if (toggleContainer) toggleContainer.style.display = "none";
     const chkLinkedOnly = document.getElementById("chk-linked-only");
-    if (chkLinkedOnly) chkLinkedOnly.checked = false;
+    if (chkLinkedOnly) chkLinkedOnly.checked = true;
     
     // Reset inputs
     document.getElementById("auth-email").value = "";
@@ -547,7 +547,7 @@ async function handleDeleteJob() {
         const toggleContainer = document.getElementById("linked-only-toggle-container");
         if (toggleContainer) toggleContainer.style.display = "none";
         const chkLinkedOnly = document.getElementById("chk-linked-only");
-        if (chkLinkedOnly) chkLinkedOnly.checked = false;
+        if (chkLinkedOnly) chkLinkedOnly.checked = true;
 
         const quickViewSelect = document.getElementById("quick-view-latest");
         if (quickViewSelect) {
