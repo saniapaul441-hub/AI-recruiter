@@ -3,6 +3,9 @@
 
 > Built for **India Runs by Redrob AI** Hackathon on Hack2Skill
 
+> [!IMPORTANT]
+> **Primary LLM Engine**: This project is built primarily on the **Google Gemini API** (using the Python FastAPI backend) for resume parsing, candidate scoring, and the conversational AI screening portal. Make sure to obtain a Gemini API key from [Google AI Studio](https://aistudio.google.com/) and configure it as `GEMINI_API_KEY` in your `.env` file to enable all AI functionalities.
+
 Traditional hiring is slow, biased, and expensive. This system automates the entire recruitment pipeline — from resume screening to AI-powered interviews — giving recruiters instant, data-driven candidate evaluations.
 
 ---
