@@ -739,9 +739,50 @@ function renderRankingsTable() {
         
         tbody.appendChild(tr);
     });
-    
     container.style.display = "block";
     filterCandidates();
+}
+
+// Export computed candidate rankings to a CSV file
+function exportRankingsToCSV() {
+    if (rankings.length === 0) {
+        alert("No rankings available to export. Please run 'AI Rank Matches' first.");
+        return;
+    }
+    
+    // Header row
+    let csvContent = "Rank,Candidate Name,Email,Phone,Match Score (%),Status,Skills\n";
+    
+    // Sort rankings by score descending to get true ranking
+    const sorted = [...rankings].sort((a, b) => b.score - a.score);
+    
+    sorted.forEach((r, index) => {
+        const candidate = r.candidate || {};
+        const rank = index + 1;
+        const name = `"${(candidate.name || '').replace(/"/g, '""')}"`;
+        const email = `"${(candidate.email || '').replace(/"/g, '""')}"`;
+        const phone = `"${(candidate.phone || '').replace(/"/g, '""')}"`;
+        const score = r.score;
+        const status = r.status;
+        const skills = `"${(candidate.skills || []).join(', ').replace(/"/g, '""')}"`;
+        
+        csvContent += `${rank},${name},${email},${phone},${score}%,${status},${skills}\n`;
+    });
+    
+    // Create download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    
+    // Filename based on current job if active
+    const activeJob = jobs.find(j => j.id == activeJobId);
+    const jobTitle = activeJob ? activeJob.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() : "candidates";
+    link.setAttribute("download", `ranked_shortlist_${jobTitle}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
 
 // Update overview metrics

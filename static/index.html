@@ -275,6 +275,9 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
                     <h3>Active Candidate Alignment Shortlist</h3>
                     <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                        <button class="btn-secondary" id="btn-export-csv" onclick="exportRankingsToCSV()" style="height: 38px; font-size: 0.82rem; background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3); color: #10b981; display: inline-flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-file-csv" style="font-size: 1.05rem;"></i> Export CSV
+                        </button>
                         <input type="text" id="candidate-search-input" class="input-field" placeholder="Search candidate name or skill..." oninput="filterCandidates()" style="width: 260px; height: 38px; font-size: 0.82rem; margin-bottom: 0; background: rgba(0,0,0,0.25);">
                         <select id="candidate-status-filter" class="table-filter-select" onchange="filterCandidates()" style="width: 140px; height: 38px; font-size: 0.82rem; margin-bottom: 0;">
                             <option value="all">All Statuses</option>
