@@ -7,3 +7,5 @@ __pycache__/
 *.pyc
 *.pptx
 generate_ppt.py
+*.pdf
+convert_ppt_to_pdf.py
