@@ -5,3 +5,5 @@ recruiter.db
 local_vector_cache.json
 __pycache__/
 *.pyc
+*.pptx
+generate_ppt.py
