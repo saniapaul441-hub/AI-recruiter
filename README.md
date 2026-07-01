@@ -90,6 +90,12 @@ python rank.py --candidates ./ai_recruiter/hacathon_data/candidates.jsonl --out 
 
 The script automatically filters out honeypot profiles, scores each valid candidate across career relevance, skill sets, and behavioral signals, and exports the top 100 results strictly matching the submission specification.
 
+### 🚀 Interactive Google Colab Sandbox
+
+You can run a mini demo of the ranker directly in your browser on Google Colab (no local setup required):
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/saniapaul441-hub/AI-recruiter/blob/main/AI_Recruiter_Sandbox.ipynb)
+
 ---
 
 ## ⚙️ How to Run

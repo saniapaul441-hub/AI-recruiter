@@ -24,8 +24,8 @@ github_repo: "https://github.com/saniapaul441-hub/AI-recruiter"
 # Required. Must be reachable. Private repos OK if you can grant organizer
 # access at Stage 3.
 
-sandbox_link: "https://github.com/saniapaul441-hub/AI-recruiter"
-# Required. A working hosted environment or demo. If you create a HuggingFace space, update this link.
+sandbox_link: "https://colab.research.google.com/github/saniapaul441-hub/AI-recruiter/blob/main/AI_Recruiter_Sandbox.ipynb"
+# Required. A working hosted environment or demo.
 
 reproduce_command: "python rank.py --candidates ./ai_recruiter/hacathon_data/candidates.jsonl --out ./submission.csv"
 # The single command that produces submission.csv from candidates.jsonl.
