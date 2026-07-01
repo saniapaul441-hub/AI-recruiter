@@ -90,11 +90,14 @@ python rank.py --candidates ./ai_recruiter/hacathon_data/candidates.jsonl --out 
 
 The script automatically filters out honeypot profiles, scores each valid candidate across career relevance, skill sets, and behavioral signals, and exports the top 100 results strictly matching the submission specification.
 
-### 🚀 Interactive Google Colab Sandbox
+### 🚀 Interactive Google Colab Sandboxes
 
-You can run a mini demo of the ranker directly in your browser on Google Colab (no local setup required):
+You can run a demo of the candidate ranker directly in your browser on Google Colab:
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/saniapaul441-hub/AI-recruiter/blob/main/AI_Recruiter_Sandbox.ipynb)
+* **[AI_Recruiter_Sandbox.ipynb](AI_Recruiter_Sandbox.ipynb)**: Downloads the candidate dataset directly from GitHub and runs the full ranker logic.
+  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/saniapaul441-hub/AI-recruiter/blob/main/AI_Recruiter_Sandbox.ipynb)
+* **[mini_rank_sandbox.ipynb](mini_rank_sandbox.ipynb) (Fully Offline / Simple)**: Runs a mini version of the ranking engine without any API or network calls. It contains an embedded subset of candidate profiles for instant testing, and supports uploading custom candidate files.
+  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/saniapaul441-hub/AI-recruiter/blob/main/mini_rank_sandbox.ipynb)
 
 ---
 
