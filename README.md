@@ -52,7 +52,29 @@ This system is an intelligent candidate evaluation suite featuring:
 ---
 
 ## 📁 Project Structure
-AI-recruiter/ ├── app/ # FastAPI Backend Codebase │ ├── config.py # App settings & dotenv configuration │ ├── database.py # Database engine & session generator │ ├── main.py # FastAPI app setup & static route mounts │ ├── models/ # SQLAlchemy Database models (User, Job, Candidate, etc.) │ ├── routes/ # Route endpoint handlers (auth, core) │ ├── services/ # Business logic (automation, llm_router, vector_db) │ └── utils/ # Security helper utilities (JWT validation) ├── static/ # Web Portal Frontend Files │ ├── index.html & app.js # Recruiter login page & auth flow │ ├── portal.html & portal.js # Recruiter workspace dashboard │ ├── screening.html & js # Candidate AI chat interview with proctoring │ └── style.css # Custom stylesheet ├── tests/ # Diagnostic Test Suite │ └── test_parser.py # Unit tests (security, CSV parser, isolation) ├── .env # Configuration environment variables template ├── run_tests.py # Test suite runner ├── server.js # Alternative Node.js Express server └── package.json # Node.js dependencies configuration
+
+```text
+AI-recruiter/
+├── app/                        # FastAPI Backend Codebase
+│   ├── config.py               # App settings & dotenv configuration
+│   ├── database.py             # Database engine & session generator
+│   ├── main.py                 # FastAPI app setup & static route mounts
+│   ├── models/                 # SQLAlchemy Database models (User, Job, etc.)
+│   ├── routes/                 # Route endpoint handlers (auth, core)
+│   ├── services/               # Business logic (automation, llm_router, vector_db)
+│   └── utils/                  # Security helper utilities (JWT validation)
+├── static/                     # Web Portal Frontend Files
+│   ├── index.html & app.js     # Recruiter login page & auth flow
+│   ├── portal.html & portal.js # Recruiter workspace dashboard
+│   ├── screening.html & js     # Candidate AI chat interview with proctoring
+│   └── style.css               # Custom stylesheet
+├── tests/                      # Diagnostic Test Suite
+│   └── test_parser.py          # Unit tests (security, CSV parser, isolation)
+├── .env                        # Configuration environment variables template
+├── run_tests.py                # Test suite runner
+├── server.js                   # Alternative Node.js Express server
+└── package.json                # Node.js dependencies configuration
+```
 
 ## ⚙️ Codebase Map by Feature
 
@@ -102,82 +124,90 @@ You can run a demo of the candidate ranker directly in your browser on Google Co
 ---
 
 ## ⚙️ How to Run
+
 ### Option A: Python FastAPI Backend (Primary)
+
 #### 1. Clone the repository
 ```bash
 git clone https://github.com/saniapaul441-hub/AI-recruiter.git
 cd AI-recruiter
-2. Create and activate a virtual environment
-bash
+```
 
-
+#### 2. Create and activate a virtual environment
+```bash
 python -m venv venv
-venv\Scripts\activate  # Windows
-# or
-source venv/bin/activate  # macOS/Linux
-3. Install dependencies
-bash
+# On Windows
+venv\Scripts\activate
+# On macOS/Linux
+source venv/bin/activate
+```
 
-
+#### 3. Install dependencies
+```bash
 pip install -r requirements.txt
-4. Configure Environment Variables
-Create a .env file in the root directory:
+```
 
-env
-
-
+#### 4. Configure Environment Variables
+Create a `.env` file in the root directory:
+```env
 DATABASE_URL=sqlite:///./recruiter.db
 SECRET_KEY=your_jwt_secret_key
 GEMINI_API_KEY=your_google_gemini_api_key
-# Optional: Add Pinecone credentials to use cloud vector search
-# Otherwise, the system automatically falls back to local NumPy search
+
+# Optional: Add Pinecone credentials to use cloud vector search.
+# Otherwise, the system automatically falls back to local NumPy search.
 PINECONE_API_KEY=
 PINECONE_ENV=us-east-1
 PINECONE_INDEX=recruiter-fingerprints
-5. Run the application
+```
+
+#### 5. Run the application
 Start the FastAPI server:
-
-bash
-
-
+```bash
 uvicorn app.main:app --reload
-Open http://localhost:8000 in your browser.
+```
+Open [http://localhost:8000](http://localhost:8000) in your browser.
 
-Option B: Node.js + Supabase Backend (Alternative)
-1. Install Node dependencies
-bash
+---
 
+### Option B: Node.js + Supabase Backend (Alternative)
 
+#### 1. Install Node dependencies
+```bash
 npm install
-2. Configure Environment Variables
-Add these to your .env file:
+```
 
-env
-
-
+#### 2. Configure Environment Variables
+Add these to your `.env` file:
+```env
 SUPABASE_URL=your_supabase_project_url
 SUPABASE_KEY=your_supabase_anon_key
 ANTHROPIC_API_KEY=your_anthropic_claude_api_key
 JWT_SECRET=your_jwt_secret_key
 PORT=8000
-3. Run the application
-bash
+```
 
-
+#### 3. Run the application
+```bash
 npm start
-🧪 Running Diagnostics & Tests
+```
+
+---
+
+### 🧪 Running Diagnostics & Tests
 Verify system integrity (auth security, parser robustness, database isolation) by running:
-
-bash
-
-
+```bash
 python run_tests.py
-👩💻 Built By
-Sania —First year student B.Tech IoT with Blockchain & Cybersecurity
-Chandigarh Group of Colleges, Landran (2025–2029)
+```
 
-📄 License
-This project is submitted as part of the Hack2Skill Hackathon — India Runs by Redrob AI. All rights reserved.
+---
+
+### 👩‍💻 Built By
+* **Sania Paul** — First-year student, B.Tech IoT with Blockchain & Cybersecurity
+  * Chandigarh Group of Colleges, Landran (2025–2029)
+
+### 📄 License
+This project is submitted as part of the Hack2Skill Hackathon — **India Runs by Redrob AI**. All rights reserved.
 
 
 
