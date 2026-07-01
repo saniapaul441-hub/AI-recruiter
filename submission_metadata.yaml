@@ -1,0 +1,78 @@
+# Redrob Hackathon — Submission Metadata
+#
+# Filled in for Sania Paul's submission
+
+# ============================================================================
+# Team identity
+# ============================================================================
+team_name: "Sania Paul"  # Used in leaderboard and announcements
+
+primary_contact:
+  name: "Sania Paul"
+  email: "saniapaul441@gmail.com"   # Used for all organizer communication
+  phone: "+91-XXXXXXXXXX"        # Replace with your actual phone number if needed
+
+team_members:
+  - name: "Sania Paul"
+    email: "saniapaul441@gmail.com"
+    role: "ML Engineer"
+
+# ============================================================================
+# Code and reproducibility
+# ============================================================================
+github_repo: "https://github.com/saniapaul441-hub/AI-recruiter"
+# Required. Must be reachable. Private repos OK if you can grant organizer
+# access at Stage 3.
+
+sandbox_link: "https://github.com/saniapaul441-hub/AI-recruiter"
+# Required. A working hosted environment or demo. If you create a HuggingFace space, update this link.
+
+reproduce_command: "python rank.py --candidates ./ai_recruiter/hacathon_data/candidates.jsonl --out ./submission.csv"
+# The single command that produces submission.csv from candidates.jsonl.
+# Runs end-to-end within 5 minutes on CPU with 16GB RAM and no network.
+
+# ============================================================================
+# Compute environment
+# ============================================================================
+compute:
+  platform: "Local PC"                          # Local machine
+  cpu_cores: 8                                  # Number of CPU cores used
+  ram_gb: 16                                    # Available RAM in GB
+  python_version: "3.10.11"                     # python --version
+  os: "Windows 11"                              # Operating system
+  uses_gpu_for_inference: false                 # Must be false — see compute constraints
+  has_network_during_ranking: false             # Must be false — no API calls during ranking
+  pre_computation_required: false               # true if you pre-compute embeddings or train models offline
+  pre_computation_time_minutes: 0               # Approximate, if applicable
+
+# ============================================================================
+# AI tools declaration
+# ============================================================================
+ai_tools_used:
+  - "Gemini"
+  - "Claude"
+
+ai_usage_summary: |
+  Used Gemini and Claude for development, debugging, code quality checks,
+  and formatting documentation. No candidate data was sent to any external LLMs.
+
+# ============================================================================
+# Approach summary
+# ============================================================================
+methodology_summary: |
+  A rule-based candidate ranker scoring candidates on three main dimensions:
+  1. Career Profile Relevance (up to 50 points: evaluating current and past titles, years of experience, service company penalties, job tenure stability, technical/research drift, and CV/Speech domain misfit).
+  2. Skills Match (up to 20 points: evaluating Python, dense embeddings, vector search, evaluation metrics, and nice-to-haves, while penalizing OpenAI/LangChain-only keyword stuffing).
+  3. Redrob Behavioral Signals (up to 10 points: recruiter response rates, GitHub activity, notice periods, and recent logins).
+  
+  Additionally, anomalous profiles (honeypots) are identified and filtered out based on logical mismatches between job durations, stated years of experience, and skill proficiency timelines. The entire ranking completes in under 10 seconds.
+
+# ============================================================================
+# Declarations
+# ============================================================================
+declarations:
+  read_submission_spec: true        # I have read submission_spec.md in full
+  code_is_original_work: true       # My code is my team's original work
+  no_collusion: true                # I have not coordinated my submission with other teams
+  honeypot_check_done: true         # Checked for honeypots inside rank.py
+  reproduction_tested: true         # Verified that the ranker runs end-to-end

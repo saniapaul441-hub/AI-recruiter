@@ -9,3 +9,16 @@ __pycache__/
 generate_ppt.py
 *.pdf
 convert_ppt_to_pdf.py
+
+# Large candidate datasets
+**/candidates.jsonl
+**/candidates.jsonl.gz
+
+# Excel sheets
+*.xlsx
+Ranked_Candidates_*.xlsx
+ranked_candidates_*.xlsx
+
+# Generated submissions
+submission.csv
+sample_submission_out.csv

@@ -71,6 +71,27 @@ Here is how the project's code files map directly to the system's core capabilit
 
 
 ---
+
+## 🏆 Hackathon Candidate Ranking (rank.py)
+
+For the Redrob Hackathon Stage 3 code reproduction, you can run the candidate ranker script end-to-end using the Python Standard Library (no external dependencies are required to run `rank.py`).
+
+### Reproduction Command
+
+Run the following command from the repository root to process the candidate profiles and generate the top 100 rankings in CSV format:
+
+```bash
+python rank.py --candidates ./ai_recruiter/hacathon_data/candidates.jsonl --out ./submission.csv
+```
+
+### Parameters
+* `--candidates`: Path to the candidate profile dataset (e.g., `candidates.jsonl` or `.json` or `.jsonl.gz`). If omitted, it will automatically search in `./ai_recruiter/hacathon_data/` for `candidates.jsonl`, `candidates.jsonl.gz`, or `sample_candidates.json`.
+* `--out`: Path to write the output ranked CSV file (defaults to `submission.csv`).
+
+The script automatically filters out honeypot profiles, scores each valid candidate across career relevance, skill sets, and behavioral signals, and exports the top 100 results strictly matching the submission specification.
+
+---
+
 ## ⚙️ How to Run
 ### Option A: Python FastAPI Backend (Primary)
 #### 1. Clone the repository
