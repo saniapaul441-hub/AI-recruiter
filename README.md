@@ -1,6 +1,33 @@
 # AI-recruiter
 # 🤖 AI-Powered Automated Talent Acquisition & Candidate Evaluation System
 
+Demo Video: [link to be added]
+
+## 🐳 Quick Start with Docker
+
+You can build and run the candidate ranker using Docker.
+
+### 1. Build the Docker Image
+Run the following command from the repository root:
+```bash
+docker build -t ai-recruiter-ranker .
+```
+
+### 2. Run the Ranker
+Make sure your candidate data file `candidates.jsonl.gz` is in your current working directory (repository root), then run:
+
+**Using PowerShell (Windows):**
+```powershell
+docker run --rm -v "${PWD}:/app" ai-recruiter-ranker
+```
+
+**Using Bash (macOS/Linux/Git Bash):**
+```bash
+docker run --rm -v "$(pwd):/app" ai-recruiter-ranker
+```
+
+---
+
 > Built for **India Runs by Redrob AI** Hackathon on Hack2Skill
 
 > [!IMPORTANT]
