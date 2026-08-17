@@ -1040,192 +1040,183 @@ async def conversational_screening_websocket(websocket: WebSocket, cand_id: int,
         if ranking:
             ranking.interview_status = "in_progress"
             db.commit()
+
+        # Step 0: Fetch competencies framework & generate resume-grounded question bank
+        competencies = llm_router.get_role_competency_framework(job.title)
+        
+        # Compile candidate details
+        resume_parts = []
+        if candidate.skills:
+            skills_str = ", ".join(candidate.skills) if isinstance(candidate.skills, list) else str(candidate.skills)
+            resume_parts.append(f"Skills: {skills_str}")
+        if candidate.experience:
+            resume_parts.append(f"Experience: {json.dumps(candidate.experience)}")
+        if candidate.education:
+            resume_parts.append(f"Education: {json.dumps(candidate.education)}")
+        if candidate.full_parsed_text:
+            resume_parts.append(f"Full Text: {candidate.full_parsed_text[:2000]}")
+        resume_text = "\n".join(resume_parts) or "No resume details available."
+        resume_summary = candidate.full_parsed_text[:500] if candidate.full_parsed_text else "No experience details."
+
+        if not interview.question_bank:
+            q_bank = llm_router.generate_initial_question_bank(candidate.name, resume_text, job.title, competencies)
+            interview.question_bank = q_bank
+            db.commit()
+            db.refresh(interview)
             
-        # 1. STEP 1: INTRO
-        intro_q = llm_router.generate_interview_response(
-            candidate_name=candidate.name,
-            job_title=job.title,
-            step=1,
-            conversation_history=[],
-            candidate_answer=""
-        )
-        # Stream intro question
-        await websocket.send_json({"step": 1, "sender": "ai", "stream_start": True})
-        for char in intro_q:
-            await websocket.send_json({"char": char})
-            await asyncio.sleep(0.01)
-        await websocket.send_json({"stream_end": True})
-        
-        # Wait for candidate response
-        cand_resp1 = await websocket.receive_text()
-        
-        # Enforce all 7 items of the introduction loop
-        accumulated_intro_text = cand_resp1
-        current_intro_q = intro_q
-        
-        analysis = llm_router.analyze_introduction(candidate.name, job.title, accumulated_intro_text)
-        
-        while not analysis.get("completed", False):
-            followup_q = analysis.get("next_question", "Please provide more details on the remaining items.")
-            
-            # Stream the follow-up request
-            await websocket.send_json({"step": 1, "sender": "ai", "stream_start": True})
-            for char in followup_q:
-                await websocket.send_json({"char": char})
-                await asyncio.sleep(0.01)
-            await websocket.send_json({"stream_end": True})
-            
-            # Record the intermediate attempt in the transcript
-            tx = list(interview.transcript or [])
-            tx.append({"role": "ai", "text": current_intro_q})
-            tx.append({"role": "candidate", "text": cand_resp1})
+        question_bank = interview.question_bank
+        tx = list(interview.transcript or [])
+
+        # Helpers for WebSocket streaming and transcript logging
+        def log_message(role: str, text: str):
+            tx.append({"role": role, "text": text})
             interview.transcript = tx
             db.commit()
-            
-            current_intro_q = followup_q
-            # Wait for next response
-            cand_resp1 = await websocket.receive_text()
-            accumulated_intro_text += "\n" + cand_resp1
-            
-            # Re-analyze with the accumulated text
-            analysis = llm_router.analyze_introduction(candidate.name, job.title, accumulated_intro_text)
-            
-        tx = list(interview.transcript or [])
-        tx.append({"role": "ai", "text": current_intro_q})
-        tx.append({"role": "candidate", "text": cand_resp1})
-        interview.transcript = tx
-        db.commit()
-        
-        # Overwrite cand_resp1 to be the full accumulated introduction so the rest of the pipeline gets all details
-        cand_resp1 = accumulated_intro_text
 
-        # 2. STEP 2: BEHAVIORAL
-        behave_q = llm_router.generate_interview_response(
-            candidate_name=candidate.name,
-            job_title=job.title,
-            step=2,
-            conversation_history=[{"role": "ai", "text": intro_q}],
-            candidate_answer=cand_resp1
-        )
-        # Stream behavioral question
-        await websocket.send_json({"step": 2, "sender": "ai", "stream_start": True})
-        for char in behave_q:
-            await websocket.send_json({"char": char})
-            await asyncio.sleep(0.01)
-        await websocket.send_json({"stream_end": True})
-        
-        # Wait for candidate response
-        cand_resp2 = await websocket.receive_text()
-        tx = list(interview.transcript or [])
-        tx.append({"role": "ai", "text": behave_q})
-        tx.append({"role": "candidate", "text": cand_resp2})
-        interview.transcript = tx
-        db.commit()
-        
-        # 3. STEP 3: TECHNICAL
-        tech_q = llm_router.generate_interview_response(
-            candidate_name=candidate.name,
-            job_title=job.title,
-            step=3,
-            conversation_history=[
-                {"role": "ai", "text": intro_q},
-                {"role": "candidate", "text": cand_resp1},
-                {"role": "ai", "text": behave_q}
-            ],
-            candidate_answer=cand_resp2
-        )
-        # Stream technical question
-        await websocket.send_json({"step": 3, "sender": "ai", "stream_start": True})
-        for char in tech_q:
-            await websocket.send_json({"char": char})
-            await asyncio.sleep(0.01)
-        await websocket.send_json({"stream_end": True})
-        
-        # Wait for candidate response
-        cand_resp3 = await websocket.receive_text()
-        tx = list(interview.transcript or [])
-        tx.append({"role": "ai", "text": tech_q})
-        tx.append({"role": "candidate", "text": cand_resp3})
-        interview.transcript = tx
-        db.commit()
-        
-        # 4. WRAP-UP & ASSESS
-        closing = llm_router.generate_interview_response(
-            candidate_name=candidate.name,
-            job_title=job.title,
-            step=4,
-            conversation_history=[
-                {"role": "ai", "text": intro_q},
-                {"role": "candidate", "text": cand_resp1},
-                {"role": "ai", "text": behave_q},
-                {"role": "candidate", "text": cand_resp2},
-                {"role": "ai", "text": tech_q}
-            ],
-            candidate_answer=cand_resp3
-        )
-        # Stream closing message
-        await websocket.send_json({"step": 4, "sender": "ai", "stream_start": True})
-        for char in closing:
-            await websocket.send_json({"char": char})
-            await asyncio.sleep(0.01)
-        await websocket.send_json({"stream_end": True})
-        
-        # Calculate AI metrics dynamically based on vocabulary depth and proctoring logs
-        total_chars = len(cand_resp1) + len(cand_resp2) + len(cand_resp3)
-        avg_resp_len = total_chars / 3.0
-        
-        # 1. Confidence Evaluation based on professional vocabulary
-        confident_keywords = ["designed", "resolved", "optimized", "implemented", "scaled", "led", "architecture", "built", "debugged", "fixed", "responsible", "created"]
-        hesitant_keywords = ["don't know", "unsure", "maybe", "probably", "i think", "not sure", "guess"]
-        
-        all_resps_lower = (cand_resp1 + " " + cand_resp2 + " " + cand_resp3).lower()
-        conf_matches = sum(3.0 for kw in confident_keywords if kw in all_resps_lower)
-        hes_penalty = sum(4.0 for kw in hesitant_keywords if kw in all_resps_lower)
-        
-        confidence_score = min(max(60.0 + conf_matches - hes_penalty + (total_chars / 35.0), 40.0), 99.0)
-        
-        # Proctoring warning penalty: reduce confidence score slightly for multiple cheating signs/tab switches
-        proctoring_count = len(interview.proctoring_alerts or [])
-        if proctoring_count > 0:
-            confidence_score = max(confidence_score - (proctoring_count * 5.0), 30.0)
-            
-        # 2. Communication Evaluation based on responsiveness depth
-        communication_score = min(max(50.0 + (avg_resp_len / 5.0), 35.0), 98.0)
-        
-        # 3. Technical Evaluation based on relevant technology keywords
-        tech_keywords = ["fastapi", "sqlalchemy", "python", "postgres", "docker", "aws", "scale", "query", "cache", "index", "async", "await", "concurrency", "lock", "redis", "celery", "migration", "orm"]
-        tech_matches = sum(3.5 for kw in tech_keywords if kw in all_resps_lower)
-        technical_score = min(max(45.0 + tech_matches, 30.0), 99.0)
-        
+        async def stream_text(step_num: int, text: str):
+            """Stream text over WebSocket character by character."""
+            await websocket.send_json({"step": step_num, "sender": "ai", "stream_start": True})
+            for char in text:
+                await websocket.send_json({"char": char})
+                await asyncio.sleep(0.005)
+            await websocket.send_json({"stream_end": True})
+
+        async def receive_with_silence_detection(current_step: int) -> str:
+            """Wait for candidate response with silence detection."""
+            silence_count = 0
+            while True:
+                try:
+                    cand_resp = await asyncio.wait_for(websocket.receive_text(), timeout=15.0)
+                    return cand_resp
+                except asyncio.TimeoutError:
+                    silence_count += 1
+                    if silence_count == 1:
+                        silence_q = "Take your time. Let me know if you would like me to repeat the question or if you need a moment."
+                        await websocket.send_json({"step": current_step, "sender": "ai", "stream_start": True})
+                        for char in silence_q:
+                            await websocket.send_json({"char": char})
+                            await asyncio.sleep(0.005)
+                        await websocket.send_json({"stream_end": True})
+                    elif silence_count >= 2:
+                        return "Candidate remained silent."
+
+        # --- STEP 1: INTRODUCTION LOOP ---
+        intro_q = f"Hello {candidate.name}! Welcome to the proctored AI screening room. I am your interviewer today. Let's start with a brief introduction. Could you please tell me about yourself and your primary technical stack?"
+        await stream_text(1, intro_q)
+        log_message("ai", intro_q)
+
+        cand_resp1 = await receive_with_silence_detection(1)
+        log_message("candidate", cand_resp1)
+
+        accumulated_intro = cand_resp1
+        analysis = llm_router.analyze_introduction(candidate.name, job.title, accumulated_intro)
+        intro_attempts = 0
+        while not analysis.get("completed", False) and intro_attempts < 2:
+            intro_attempts += 1
+            followup_q = analysis.get("next_question", "Please provide more details on the remaining items.")
+            await stream_text(1, followup_q)
+            log_message("ai", followup_q)
+
+            cand_resp1 = await receive_with_silence_detection(1)
+            log_message("candidate", cand_resp1)
+            accumulated_intro += "\n" + cand_resp1
+            analysis = llm_router.analyze_introduction(candidate.name, job.title, accumulated_intro)
+
+        # --- STEP 2: BEHAVIORAL FIT & STAR PROBING ---
+        behave_q = question_bank.get("behavioral", "Could you walk me through a major engineering challenge or database deadlock you encountered, and explain exactly how you resolved it?")
+        behave_q_full = f"Thank you for the introduction. Let's move to a behavioral scenario. {behave_q}"
+        await stream_text(2, behave_q_full)
+        log_message("ai", behave_q_full)
+
+        cand_resp2 = await receive_with_silence_detection(2)
+        log_message("candidate", cand_resp2)
+
+        # Probing follow-up if shallow or missing STAR structure
+        behave_check = llm_router.check_behavioral_followup(behave_q_full, cand_resp2)
+        if behave_check.get("needs_follow_up", False):
+            followup = behave_check.get("follow_up_question")
+            await stream_text(2, followup)
+            log_message("ai", followup)
+
+            cand_resp2_followup = await receive_with_silence_detection(2)
+            log_message("candidate", cand_resp2_followup)
+
+        # --- STEP 3: TECHNICAL DESIGN & ERROR CLEARING ---
+        tech_q = question_bank.get("technical", f"For a {job.title} role, explain how you would design and optimize a backend system to manage high-concurrency API requests.")
+        tech_q_full = f"Got it. Let's move on to technical design. {tech_q}"
+        await stream_text(3, tech_q_full)
+        log_message("ai", tech_q_full)
+
+        cand_resp3 = await receive_with_silence_detection(3)
+        log_message("candidate", cand_resp3)
+
+        # Probing follow-up if factual/logical errors or shallow tech details
+        tech_check = llm_router.check_technical_followup(tech_q_full, cand_resp3)
+        if tech_check.get("needs_follow_up", False):
+            followup_tech = tech_check.get("follow_up_question")
+            await stream_text(3, followup_tech)
+            log_message("ai", followup_tech)
+
+            cand_resp3_followup = await receive_with_silence_detection(3)
+            log_message("candidate", cand_resp3_followup)
+
+        # --- STEP 4: CASE / CLOSING & ASSESSMENT ---
+        case_q = question_bank.get("case", "How would you design a scalable microservice that ensures zero message loss during database failovers?")
+        case_q_full = f"Interesting approach. Let's finish with an architectural case. {case_q}"
+        await stream_text(4, case_q_full)
+        log_message("ai", case_q_full)
+
+        cand_resp4 = await receive_with_silence_detection(4)
+        log_message("candidate", cand_resp4)
+
+        closing_msg = "Excellent! That completely wraps up our conversational screening round. I have successfully compiled your responses. Our team will review them and follow up soon. Have a great day!"
+        await stream_text(4, closing_msg)
+        log_message("ai", closing_msg)
+
+        # --- SCORING & RUBRIC LOGGING ---
+        evaluation = llm_router.assess_interview_rubric(candidate.name, job.title, tx)
+
+        substance = evaluation.get("substance_score", {})
+        delivery = evaluation.get("delivery_score", {})
+        overall_score = evaluation.get("overall_score", 70.0)
+        ai_summary = evaluation.get("ai_summary", "Evaluation complete.")
+
         interview.status = "completed"
-        interview.confidence_score = round(confidence_score, 1)
-        interview.communication_score = round(communication_score, 1)
-        interview.technical_score = round(technical_score, 1)
+        interview.confidence_score = float(delivery.get("filler_words", 70.0))
+        interview.communication_score = float(delivery.get("communication_clarity", 75.0))
+        interview.technical_score = float(substance.get("technical_correctness", 70.0))
+        interview.ai_summary = ai_summary
+        interview.detailed_rubric = evaluation
         interview.completed_at = datetime.utcnow()
-        
-        # Formulate AI summary showing proctoring status
-        proctor_text = "Clean proctoring log with no active flags."
-        if interview.cheating_suspected:
-            proctor_text = f"WARNING: Proctoring flag active ({proctoring_count} tab/window switches detected during proctored session)."
-            
-        interview.ai_summary = (
-            f"The candidate exhibited dynamic communication proficiency ({round(communication_score, 1)}%) "
-            f"and technical capability score of {round(technical_score, 1)}%. Confidence verified at {round(confidence_score, 1)}%. "
-            f"Proctoring Status: {proctor_text}"
-        )
         db.commit()
-        
-        # Execute decision maker & queue email notifications automatically with 5-minute buffer!
+
+        if ranking:
+            ranking.score = float(overall_score)
+            ranking.sub_scores = {
+                "experience": float(substance.get("role_fit", 70.0)),
+                "skills": float(substance.get("technical_correctness", 70.0)),
+                "leadership": float(substance.get("star_structure", 70.0))
+            }
+            ranking.autonomous_decision = "shortlisted" if overall_score >= 65.0 else "rejected"
+            ranking.status = ranking.autonomous_decision
+            ranking.interview_status = "completed"
+
+            # Set pros & cons based on evaluation details
+            ranking.pros = [
+                f"Technical correctness scored {substance.get('technical_correctness')}%: {substance.get('correctness_details')[:120]}",
+                f"Communication clarity scored {delivery.get('communication_clarity')}%: {delivery.get('delivery_details')[:120]}"
+            ]
+            ranking.cons = [
+                f"STAR structure scored {substance.get('star_structure')}%",
+                f"Filler words score: {delivery.get('filler_words')}%"
+            ]
+            db.commit()
+
+        # Execute decision maker & email delivery
         evaluate_interview(interview, db)
-        
+
     except WebSocketDisconnect:
-        print(f"Candidate {cand_id} disconnected from screening interview room.")
-    except Exception as e:
-        print(f"Error during WebSocket conversational interview session: {e}")
-        try:
-            await websocket.send_json({"error": "An internal server error occurred."})
-        except:
-            pass
+        print(f"Candidate {cand_id} disconnected.")
     finally:
         db.close()
 

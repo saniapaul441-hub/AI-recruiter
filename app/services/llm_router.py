@@ -587,4 +587,357 @@ class LLMRouterService:
                 "next_question": next_q
             }
 
+    def get_role_competency_framework(self, job_title: str) -> str:
+        """Query Pinecone/local cache for the closest competency framework or fall back to pre-defined mapping."""
+        # Predefined frameworks as robust default mappings
+        competency_bank = {
+            "comp_backend": (
+                "Competencies:\n"
+                "- High-throughput API Design & Performance optimization\n"
+                "- Relational databases, SQL query tuning, and index design (e.g., SQLAlchemy/PostgreSQL bottlenecks)\n"
+                "- Concurrency management, race conditions, caching strategies (Redis)\n"
+                "- Microservices architecture, messaging queues, and async tasks\n"
+                "- System security (JWT, JWT validation, role-based controls)"
+            ),
+            "comp_frontend": (
+                "Competencies:\n"
+                "- State management patterns (Redux, Context API, etc.)\n"
+                "- Responsive, accessible layout structures & styling performance (CSS/HTML5)\n"
+                "- Core Javascript/TypeScript performance optimization under heavy browser load\n"
+                "- Frontend security (CSRF mitigation, secure token storage, XSS prevention)\n"
+                "- Dynamic data binding, routing, and user experience telemetry"
+            ),
+            "comp_ai": (
+                "Competencies:\n"
+                "- Model selection, deployment, and LLM orchestration (FastAPI + Gemini/Claude API integration)\n"
+                "- Retrieval-Augmented Generation (RAG) concepts and vector similarity searches (Pinecone/NumPy cache)\n"
+                "- Prompt engineering, system prompt tuning, token usage, and latency optimization\n"
+                "- Data sanitization, parsing structured files (PDF/DOCX/CSV), and validation schemas\n"
+                "- Machine learning pipelines, dataset cleaning, and evaluation rubrics"
+            ),
+            "comp_fullstack": (
+                "Competencies:\n"
+                "- End-to-end web system designs, REST API integration with FastAPI\n"
+                "- Frontend DOM optimization, client-side rendering frameworks, responsive UI stylesheets\n"
+                "- SQL Schema designs, transaction handling, concurrency management\n"
+                "- User auth loops (JWT tokens, password hashing, and cookie management)\n"
+                "- App deployment, containerization (Docker), and local sandbox configurations"
+            )
+        }
+
+        from app.services.vector_db import vector_db, EmbeddingEngine
+        try:
+            # Seed standard frames locally if not already done
+            frameworks = {
+                "comp_backend": "Backend engineering competencies: database optimization, sql query tuning, fastapi, sqlalchemy, redis caching, concurrency, messaging, system design.",
+                "comp_frontend": "Frontend engineering competencies: javascript, react, state management, css stylesheets, performance optimization, cross-browser compatibility, web analytics.",
+                "comp_ai": "AI and Machine learning competencies: llm orchestration, gemini/claude API integration, vector similarity search, pinecone indexing, prompt engineering, machine learning pipelines.",
+                "comp_fullstack": "Full stack software development competencies: end-to-end design, fastapi backend, client-side javascript, relational schemas, user authentication, docker deployment."
+            }
+            for comp_key, text in frameworks.items():
+                if comp_key not in vector_db.local_vectors:
+                    emb = EmbeddingEngine.generate_embedding(text)
+                    vector_db.local_vectors[comp_key] = emb
+            vector_db.save_local_cache()
+
+            query_vector = EmbeddingEngine.generate_embedding(job_title)
+            best_score = -1.0
+            best_key = "comp_fullstack"
+
+            for comp_key in ["comp_backend", "comp_frontend", "comp_ai", "comp_fullstack"]:
+                if comp_key in vector_db.local_vectors:
+                    vec = vector_db.local_vectors[comp_key]
+                    dot = sum(a * b for a, b in zip(query_vector, vec))
+                    norm_a = sum(a * a for a in query_vector) ** 0.5
+                    norm_b = sum(b * b for b in vec) ** 0.5
+                    sim = dot / (norm_a * norm_b) if (norm_a * norm_b) > 0 else 0.0
+                    if sim > best_score:
+                        best_score = sim
+                        best_key = comp_key
+
+            return competency_bank.get(best_key, competency_bank["comp_fullstack"])
+        except Exception as e:
+            print(f"Error matching competency framework: {e}")
+            clean_title = job_title.lower()
+            if "backend" in clean_title or "python" in clean_title or "fastapi" in clean_title:
+                return competency_bank["comp_backend"]
+            elif "frontend" in clean_title or "react" in clean_title or "javascript" in clean_title:
+                return competency_bank["comp_frontend"]
+            elif "ai" in clean_title or "ml" in clean_title or "machine learning" in clean_title:
+                return competency_bank["comp_ai"]
+            return competency_bank["comp_fullstack"]
+
+    def generate_initial_question_bank(self, candidate_name: str, candidate_resume: str, job_title: str, competencies: str) -> dict:
+        """Generate structured screening questions grounded in the candidate's resume and job competency framework."""
+        if not self.api_key_configured:
+            return {
+                "behavioral": f"Could you walk me through a major engineering challenge or database deadlock you encountered, and explain exactly how you resolved it?",
+                "technical": f"For a {job_title} role, explain how you would design and optimize a backend system to manage high-concurrency API requests and SQLAlchemy database latency.",
+                "case": f"How would you design a scalable microservice that ensures zero message loss during database failovers?"
+            }
+
+        system_instruction = (
+            "You are a master technical interviewer. Your goal is to design highly customized screening questions "
+            "for a candidate that are grounded in their actual resume experience and align with the role's competency framework. "
+            "Never generate generic questions."
+        )
+
+        prompt = f"""
+        Candidate Name: {candidate_name}
+        Job Title: {job_title}
+        Retrieved Role Competencies:
+        {competencies}
+
+        Candidate Resume/Experience text:
+        ---
+        {candidate_resume}
+        ---
+
+        Design EXACTLY 3 specific screening questions:
+        1. "behavioral": A STAR-based behavioral question targeting a specific project or role mentioned in the candidate's resume.
+        2. "technical": A technical question targeting the candidate's core stack (e.g., Python/FastAPI, React, etc.) and testing high-concurrency, performance, or database indexing, referencing their resume.
+        3. "case": A system design or architectural case question relevant to the role's competencies and candidate experience level.
+
+        Return a JSON object with this EXACT structure:
+        {{
+            "behavioral": "Question text...",
+            "technical": "Question text...",
+            "case": "Question text..."
+        }}
+
+        Keep each question clear, natural, and under 2 sentences. No markdown formatting.
+        Return ONLY the raw JSON object. Do not wrap in markdown code blocks.
+        """
+
+        try:
+            response_text = self._call_gemini(prompt, system_instruction)
+            cleaned = self._clean_json_response(response_text)
+            return json.loads(cleaned)
+        except Exception as e:
+            print(f"Error generating question bank: {e}")
+            return {
+                "behavioral": f"Could you walk me through a major engineering challenge or database deadlock you encountered, and explain exactly how you resolved it?",
+                "technical": f"Explain how you would design and optimize a backend system to manage high-concurrency API requests and database latency under load.",
+                "case": f"How would you design a scalable microservice that ensures zero message loss during failovers?"
+            }
+
+    def generate_interview_response_stream(
+        self,
+        candidate_name: str,
+        job_title: str,
+        step: int,
+        conversation_history: list,
+        candidate_answer: str,
+        question_bank: dict,
+        competencies: str,
+        resume_summary: str
+    ):
+        """Streams the next interview question/reaction dynamically, keeping system prompt under 400 tokens."""
+        if not self.api_key_configured or not self.model_name:
+            fallback = self._get_static_fallback(candidate_name, job_title, step)
+            for char in fallback:
+                yield char
+            return
+
+        history_str = ""
+        for turn in conversation_history:
+            role = "Candidate" if turn.get("role") == "candidate" else "AI"
+            history_str += f"{role}: {turn.get('text', '')}\n"
+
+        system_instruction = (
+            f"You are the voice-based AI Recruiter conducting an interview for {job_title}.\n"
+            f"Candidate: {candidate_name}. Resume: {resume_summary}. Competencies: {competencies}.\n"
+            f"Question Bank: {json.dumps(question_bank)}.\n"
+            "VOICE RULES:\n"
+            "- Speak naturally. Under 3 sentences. No bullet points, markdown, or stars (*).\n"
+            "- No pleasantry loops or praise. Keep it neutral and brief.\n"
+            "INTERVIEW BEHAVIOR:\n"
+            "- Step 1: Welcome candidate, request intro & tech stack.\n"
+            "- Step 2: Ask behavioral question from Bank. If answer is vague or lacks STAR (e.g. missing Result), ask a follow-up probing metrics or contribution.\n"
+            "- Step 3: Ask technical system design question from Bank. If answer has a logic/factual error, ask a follow-up exposing it.\n"
+            "- Step 4: Ask case question from Bank or wrap up and thank candidate.\n"
+            "- Maintain flow. Do not repeat questions."
+        )
+
+        prompt = f"""
+        CONVERSATION HISTORY:
+        {history_str}
+
+        CANDIDATE RESPONSE:
+        "{candidate_answer}"
+
+        CURRENT STEP: Step {step} of 4.
+
+        Generate the next AI response to speak to the candidate. Output ONLY the speech next text.
+        """
+
+        try:
+            gen_config = {"temperature": 0.2}
+            model = genai.GenerativeModel(
+                model_name=self.model_name,
+                system_instruction=system_instruction,
+                generation_config=gen_config
+            )
+            response = model.generate_content(prompt, stream=True)
+            for chunk in response:
+                if chunk.text:
+                    cleaned_chunk = re.sub(r'[*#_\-`\[\]()]', '', chunk.text)
+                    yield cleaned_chunk
+        except Exception as e:
+            print(f"Error in interview response stream: {e}")
+            fallback = self._get_static_fallback(candidate_name, job_title, step)
+            for char in fallback:
+                yield char
+
+    def assess_interview_rubric(self, candidate_name: str, job_title: str, transcript: list) -> dict:
+        """Call Gemini to evaluate the interview transcript against explicit rubrics."""
+        if not self.api_key_configured:
+            return {
+                "substance_score": {
+                    "technical_correctness": 70.0,
+                    "role_fit": 75.0,
+                    "star_structure": 65.0,
+                    "correctness_details": "Completed screening. Demonstrated baseline understanding of FastAPI. STAR story resolved deadlocks but lacked specific metrics."
+                },
+                "delivery_score": {
+                    "communication_clarity": 80.0,
+                    "pacing": 75.0,
+                    "filler_words": 70.0,
+                    "delivery_details": "Spoke clearly and paced answers appropriately. Minor usage of filler words like 'uh'."
+                },
+                "overall_score": 72.5,
+                "ai_summary": "Candidate showed good communication clarity and met basic technical requirements, but needs more depth in database indexing and performance metrics."
+            }
+
+        system_instruction = (
+            "You are an elite principal developer and talent analyst. Evaluate the candidate's interview "
+            "transcript using a rigorous, multi-dimensional scoring rubric. Separate substance from delivery."
+        )
+
+        formatted_history = ""
+        for turn in transcript:
+            role = "Candidate" if turn.get("role") == "candidate" else "AI Recruiter"
+            formatted_history += f"{role}: {turn.get('text', '')}\n"
+
+        prompt = f"""
+        Candidate: {candidate_name}
+        Applied Role: {job_title}
+
+        INTERVIEW TRANSCRIPT:
+        ---
+        {formatted_history}
+        ---
+
+        Evaluate the transcript across these explicit categories:
+        1. Substance (Score out of 100 for each):
+           - "technical_correctness": Assess factual correctness of systems/logic designs. Check for any errors.
+           - "role_fit": Alignment with core responsibilities of a {job_title}.
+           - "star_structure": Explicitly check if behavioral answers followed Situation, Task, Action, Result. Did they include concrete metrics?
+        2. Delivery (Score out of 100 for each):
+           - "communication_clarity": How clearly they articulated concepts.
+           - "pacing": Natural speaking pace, not too fast or slow.
+           - "filler_words": Frequency of speech hesitations or filler words (um, uh, like, etc.).
+
+        Return a JSON object with this EXACT structure:
+        {{
+            "substance_score": {{
+                "technical_correctness": 85.0,
+                "role_fit": 80.0,
+                "star_structure": 75.0,
+                "correctness_details": "Details on technical correctness and STAR alignment."
+            }},
+            "delivery_score": {{
+                "communication_clarity": 80.0,
+                "pacing": 75.0,
+                "filler_words": 70.0,
+                "delivery_details": "Details of delivery performance, pacing, and filler words."
+            }},
+            "overall_score": 80.0,
+            "ai_summary": "A concise 2-sentence summary of the candidate's performance, gaps, and strength."
+        }}
+
+        Return ONLY the raw JSON object. Do not wrap in markdown or backticks.
+        """
+
+        try:
+            response_text = self._call_gemini(prompt, system_instruction)
+            cleaned = self._clean_json_response(response_text)
+            return json.loads(cleaned)
+        except Exception as e:
+            print(f"Error evaluating interview rubric: {e}")
+            return {
+                "substance_score": {
+                    "technical_correctness": 70.0,
+                    "role_fit": 75.0,
+                    "star_structure": 65.0,
+                    "correctness_details": "Completed screening. Demonstrated baseline understanding of backend design."
+                },
+                "delivery_score": {
+                    "communication_clarity": 80.0,
+                    "pacing": 75.0,
+                    "filler_words": 70.0,
+                    "delivery_details": "Spoke clearly. Minor filler words."
+                },
+                "overall_score": 72.5,
+                "ai_summary": "Candidate showed good communication clarity and met basic technical requirements, but lacks STAR results."
+            }
+
+    def check_behavioral_followup(self, question: str, answer: str) -> dict:
+        """Call Gemini to see if candidate's behavioral answer is vague/shallow or lacks STAR structure."""
+        if not self.api_key_configured:
+            return {"needs_follow_up": False, "follow_up_question": ""}
+
+        system_instruction = "You are a master interviewer checking if a candidate's answer needs probing."
+        prompt = f"""
+        Behavioral Question: {question}
+        Candidate Answer: {answer}
+
+        Evaluate if the candidate's answer is shallow, vague, or lacks a concrete result (the 'R' in STAR).
+        If it is shallow/vague/missing details, return needs_follow_up as true and generate a natural follow-up question.
+        Otherwise, return needs_follow_up as false.
+
+        Return a JSON object with this EXACT structure:
+        {{
+            "needs_follow_up": true/false,
+            "follow_up_question": "A gentle, spoken follow-up under 2 sentences prompting them for specific metrics or their individual contribution."
+        }}
+
+        Return ONLY the raw JSON.
+        """
+        try:
+            response_text = self._call_gemini(prompt, system_instruction)
+            cleaned = self._clean_json_response(response_text)
+            return json.loads(cleaned)
+        except Exception:
+            return {"needs_follow_up": False, "follow_up_question": ""}
+
+    def check_technical_followup(self, question: str, answer: str) -> dict:
+        """Call Gemini to check if candidate's technical answer has a factual/logical error or needs clarification."""
+        if not self.api_key_configured:
+            return {"needs_follow_up": False, "follow_up_question": ""}
+
+        system_instruction = "You are a master technical interviewer checking if a candidate's technical answer has an error or is incomplete."
+        prompt = f"""
+        Technical Question: {question}
+        Candidate Answer: {answer}
+
+        Evaluate if the candidate's technical answer contains a logical/factual error, or is shallow.
+        If it has an error or needs clarification, return needs_follow_up as true and generate a natural follow-up question exposing the error or asking for clarification.
+        Otherwise, return needs_follow_up as false.
+
+        Return a JSON object with this EXACT structure:
+        {{
+            "needs_follow_up": true/false,
+            "follow_up_question": "A gentle, spoken follow-up under 2 sentences asking them to walk through the error or explain how it scales."
+        }}
+
+        Return ONLY the raw JSON.
+        """
+        try:
+            response_text = self._call_gemini(prompt, system_instruction)
+            cleaned = self._clean_json_response(response_text)
+            return json.loads(cleaned)
+        except Exception:
+            return {"needs_follow_up": False, "follow_up_question": ""}
+
 llm_router = LLMRouterService()

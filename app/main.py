@@ -12,6 +12,32 @@ from app.routes import auth, core
 # Initialize database tables on startup
 Base.metadata.create_all(bind=engine)
 
+# Safely run database migrations for new sqlite columns if they don't exist
+def migrate_database_schema():
+    import sqlite3
+    db_url = settings.DATABASE_URL
+    if db_url.startswith("sqlite:///"):
+        db_path = db_url.replace("sqlite:///", "")
+        if not db_path:
+            db_path = "recruiter.db"
+        try:
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA table_info(interviews)")
+            columns = [col[1] for col in cursor.fetchall()]
+            if "question_bank" not in columns:
+                cursor.execute("ALTER TABLE interviews ADD COLUMN question_bank JSON;")
+            if "detailed_rubric" not in columns:
+                cursor.execute("ALTER TABLE interviews ADD COLUMN detailed_rubric JSON;")
+            conn.commit()
+            print("SQLite schema migrations executed successfully.")
+        except Exception as e:
+            print(f"Error during SQLite schema migration: {e}")
+        finally:
+            conn.close()
+
+migrate_database_schema()
+
 # Seed default credentials if database is empty
 def seed_default_users():
     db = SessionLocal()

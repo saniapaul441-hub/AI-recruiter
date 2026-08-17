@@ -43,8 +43,8 @@ if ('speechSynthesis' in window) {
 function speakSentence(text) {
     if (!('speechSynthesis' in window)) return;
     
-    // Strip HTML tags if any exist in the streamed text
-    const cleanedText = text.replace(/<[^>]*>/g, '').trim();
+    // Strip HTML tags and replace any remaining markdown symbols like asterisks
+    const cleanedText = text.replace(/<[^>]*>/g, '').replace(/[*#_\-`\[\]()]/g, '').trim();
     if (!cleanedText) return;
     
     const utterance = new SpeechSynthesisUtterance(cleanedText);
@@ -375,6 +375,12 @@ async function startInterviewSession() {
     ws.onopen = () => {
         console.log("WebSocket secure screening room connected.");
         interviewActive = true;
+        // Auto-start microphone for a hands-free voice experience!
+        setTimeout(() => {
+            if (!isListening) {
+                toggleSpeechRecognition();
+            }
+        }, 1000);
     };
     
     ws.onmessage = (event) => {
@@ -418,7 +424,7 @@ async function startInterviewSession() {
             
             // If final step wrap-up is reached, lock inputs permanently
             if (data.step === 4) {
-                disableInput(true);
+                disableInput(true, true);
                 // Close socket and stop tracks gracefully
                 if (ws) {
                     ws.close();
@@ -542,7 +548,7 @@ function appendAICharacter(char) {
 }
 
 function sendCandidateMessage() {
-    stopListening();
+    // Keep mic running continuously for hands-free and barge-in!
     const textInput = document.getElementById("chat-text-input");
     const message = textInput.value.trim();
     
@@ -613,7 +619,7 @@ function updateStepProgressBar(step) {
     }
 }
 
-function disableInput(disabled) {
+function disableInput(disabled, forceStopMic = false) {
     const textInput = document.getElementById("chat-text-input");
     const sendBtn = document.getElementById("chat-send-btn");
     const micBtn = document.getElementById("chat-mic-btn");
@@ -624,9 +630,11 @@ function disableInput(disabled) {
     if (textInput) textInput.disabled = forceDisabled;
     if (sendBtn) sendBtn.disabled = forceDisabled;
     if (micBtn) {
-        micBtn.disabled = forceDisabled;
-        if (forceDisabled) {
+        if (forceStopMic) {
+            micBtn.disabled = true;
             stopListening();
+        } else {
+            micBtn.disabled = false; // Keep mic active for hands-free and barge-in!
         }
     }
     
@@ -885,6 +893,8 @@ function stopBiometricTracking() {
 let recognition = null;
 let isListening = false;
 
+let autoSubmitTimeout = null;
+
 function initSpeechRecognition() {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
         console.warn("Speech recognition not supported in this browser.");
@@ -893,7 +903,7 @@ function initSpeechRecognition() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     recognition = new SpeechRecognition();
     recognition.continuous = true; 
-    recognition.interimResults = false;
+    recognition.interimResults = true; // Use interim results for rapid barge-in!
     recognition.lang = 'en-US';
 
     recognition.onstart = () => {
@@ -902,17 +912,39 @@ function initSpeechRecognition() {
     };
 
     recognition.onresult = (event) => {
-        let transcript = "";
+        // Clear timeout immediately on ANY result to prevent premature auto-submit while actively speaking
+        clearTimeout(autoSubmitTimeout);
+
+        // Instant Barge-In detection
+        if (window.speechSynthesis && window.speechSynthesis.speaking) {
+            window.speechSynthesis.cancel();
+            console.log("Barge-in: Candidate speaking. Interrupted AI speech.");
+        }
+        
+        let finalTranscript = "";
+        let interimTranscript = "";
+        
         for (let i = event.resultIndex; i < event.results.length; ++i) {
             if (event.results[i].isFinal) {
-                transcript += event.results[i][0].transcript;
+                finalTranscript += event.results[i][0].transcript;
+            } else {
+                interimTranscript += event.results[i][0].transcript;
             }
         }
+        
         const inputField = document.getElementById("chat-text-input");
-        if (transcript && inputField) {
-            inputField.value += (inputField.value ? ' ' : '') + transcript;
-            // Dispatch input event so that text area resizing / auto-height works
-            inputField.dispatchEvent(new Event('input', { bubbles: true }));
+        if (inputField) {
+            if (finalTranscript) {
+                inputField.value += (inputField.value ? ' ' : '') + finalTranscript;
+                inputField.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            
+            // Only schedule auto-submit if text exists and no active interim speech is detected
+            if (inputField.value.trim() && !interimTranscript) {
+                autoSubmitTimeout = setTimeout(() => {
+                    sendCandidateMessage();
+                }, 1500);
+            }
         }
     };
 

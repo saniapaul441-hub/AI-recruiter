@@ -65,6 +65,8 @@ class Interview(Base):
     ai_summary = Column(Text, nullable=True)
     proctoring_alerts = Column(JSON, nullable=True, default=list)  # [{"type": "tab_switch", "timestamp": "..."}]
     cheating_suspected = Column(Boolean, default=False)
+    question_bank = Column(JSON, nullable=True)  # {"behavioral": "...", "technical": "...", "case": "..."}
+    detailed_rubric = Column(JSON, nullable=True)  # substance, delivery, STAR scoring breakdown
     completed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
