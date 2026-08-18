@@ -589,7 +589,6 @@ function triggerLocalStreaming(step, text) {
         }
     }, 15);
 }
-}
 
 function cleanupSessionState() {
     interviewActive = false;
