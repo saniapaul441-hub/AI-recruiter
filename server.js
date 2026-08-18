@@ -1222,10 +1222,81 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'static', 'index.html'));
 });
 
+// Helper database seeding for default sandbox candidate & recruiter
+async function seedSupabaseIfNeeded() {
+    try {
+        console.log("Checking if Supabase database needs seeding...");
+        
+        // 1. Check recruiters
+        const { data: recs, error: recErr } = await supabase.from('recruiters').select('id');
+        if (!recErr && (!recs || recs.length === 0)) {
+            console.log("Seeding default recruiters...");
+            const passwordHash = await bcrypt.hash('recruiter123', 10);
+            await supabase.from('recruiters').insert({
+                email: 'recruiter@recruiter.com',
+                password_hash: passwordHash,
+                role: 'recruiter'
+            });
+            
+            const adminHash = await bcrypt.hash('admin123', 10);
+            await supabase.from('recruiters').insert({
+                email: 'admin@admin.com',
+                password_hash: adminHash,
+                role: 'admin'
+            });
+        }
+        
+        // 2. Check jobs
+        const { data: jobs, error: jobErr } = await supabase.from('jobs').select('id');
+        if (!jobErr && (!jobs || jobs.length === 0)) {
+            console.log("Seeding default job description...");
+            const mockRequirements = {
+                extracted_title: "Backend Software Engineer",
+                must_have_skills: ["Node.js", "Express", "PostgreSQL", "JavaScript"],
+                nice_to_have_skills: ["Docker", "Vercel", "WebSockets"],
+                experience_level: "2+ years",
+                role_type: "Full-Time",
+                summary: "Develop and maintain core Express APIs and integrations."
+            };
+            
+            await supabase.from('jobs').insert({
+                id: 1,
+                title: "Backend Software Engineer",
+                description: "We are looking for a Backend Software Engineer with experience in Node.js, Express, and PostgreSQL to join our team.",
+                parsed_requirements: mockRequirements
+            });
+        }
+        
+        // 3. Check candidates
+        const { data: cands, error: candErr } = await supabase.from('candidates').select('id');
+        if (!candErr && (!cands || cands.length === 0)) {
+            console.log("Seeding default candidate for testing...");
+            const token = crypto.randomBytes(24).toString('hex');
+            await supabase.from('candidates').insert({
+                id: 1,
+                job_id: 1,
+                name: "Sania Paul",
+                email: "sania@candidate.com",
+                phone: "+91 9999999999",
+                skills: ["Node.js", "Express", "PostgreSQL", "JavaScript"],
+                experience_years: 2.0,
+                full_parsed_text: "Sania Paul. Junior Backend Engineer. 2 years experience building Node.js/Express web APIs with PostgreSQL databases.",
+                portal_token: token,
+                status: 'pending',
+                fit_score: 0.0
+            });
+        }
+        console.log("Database seeding check complete.");
+    } catch (e) {
+        console.error("Failed to seed Supabase database:", e);
+    }
+}
+
 // Start Server
 if (require.main === module) {
-    app.listen(PORT, () => {
+    app.listen(PORT, async () => {
         console.log(`AI Recruiter Node.js backend is running at http://localhost:${PORT}`);
+        await seedSupabaseIfNeeded();
     });
 }
 
