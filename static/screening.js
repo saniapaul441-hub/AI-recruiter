@@ -9,6 +9,7 @@ let currentAIBubble = null;
 let currentStepNum = 1;
 let step1Clicks = 0;
 let interviewActive = false;
+let useHTTPFallback = false;
 
 let localStream = null;
 let cameraActive = false;
@@ -367,119 +368,227 @@ async function startInterviewSession() {
         return;
     }
     
-    // Establish real-time WebSocket connection
+    // Establish WebSocket connection with transparent HTTP REST fallback
     const wsUrl = `${WS_BASE}/api/interviews/chat/${currentCandidateId}/${currentJobId}`;
-    ws = new WebSocket(wsUrl);
-    
-    // Set up WebSocket events
-    ws.onopen = () => {
-        console.log("WebSocket secure screening room connected.");
-        interviewActive = true;
-        // Auto-start microphone for a hands-free voice experience!
-        setTimeout(() => {
-            if (!isListening) {
-                toggleSpeechRecognition();
-            }
-        }, 1000);
-    };
-    
-    ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
+    try {
+        ws = new WebSocket(wsUrl);
         
-        if (data.error) {
-            alert(`Error: ${data.error}`);
-            cleanupSessionState();
-            return;
-        }
+        // Set up WebSocket events
+        ws.onopen = () => {
+            console.log("WebSocket secure screening room connected.");
+            interviewActive = true;
+            // Auto-start microphone for a hands-free voice experience!
+            setTimeout(() => {
+                if (!isListening) {
+                    toggleSpeechRecognition();
+                }
+            }, 1000);
+        };
         
-        // Handle Step transitions
-        if (data.step) {
-            updateStepProgressBar(data.step);
-        }
+        ws.onmessage = (event) => {
+            handleIncomingData(JSON.parse(event.data));
+        };
         
-        // Handle Character Streaming
-        if (data.stream_start) {
-            disableInput(true);
-            showTypingIndicator(false);
-            createAIBubble();
-            
-            // Cancel active speech and reset TTS tracking indices
-            if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel();
+        ws.onclose = (event) => {
+            console.log("WebSocket screening room closed.", event.code);
+            // If the connection closed abruptly or prematurely (not completed), recover UI
+            if (ws !== null && !useHTTPFallback) {
+                console.warn("WebSocket closed unexpectedly:", event);
+                alert("Screening connection closed unexpectedly or failed. Please verify that the Candidate ID exists and the backend server is running.");
+                cleanupSessionState();
             }
-            spokenTextLength = 0;
-        } else if (data.char) {
-            appendAICharacter(data.char);
-        } else if (data.stream_end) {
-            disableInput(false);
-            
-            // Speak any trailing text fragment that didn't end with a sentence delimiter
-            if (currentAIBubble) {
-                const remainingText = currentAIBubble.textContent.substring(spokenTextLength).trim();
-                if (remainingText) {
-                    speakSentence(remainingText);
-                }
+        };
+        
+        ws.onerror = (err) => {
+            console.error("WebSocket encountered an error, falling back to HTTP REST:", err);
+            useHTTPFallback = true;
+            if (ws) {
+                ws.close();
+                ws = null;
             }
-            currentAIBubble = null;
-            
-            // If final step wrap-up is reached, lock inputs permanently
-            if (data.step === 4) {
-                disableInput(true, true);
-                // Close socket and stop tracks gracefully
-                if (ws) {
-                    ws.close();
-                    ws = null;
-                }
-                if (localStream) {
-                    localStream.getTracks().forEach(track => track.stop());
-                    localStream = null;
-                }
-                if (audioInterval) clearInterval(audioInterval);
-                
-                // Add visual outcome card guiding back
-                setTimeout(() => {
-                    const chatStream = document.getElementById("chat-stream");
-                    const notice = document.createElement("div");
-                    notice.className = "glass-panel";
-                    notice.style.padding = "20px";
-                    notice.style.marginTop = "16px";
-                    notice.style.textAlign = "center";
-                    notice.style.borderColor = "rgba(16, 185, 129, 0.25)";
-                    notice.style.background = "rgba(16, 185, 129, 0.03)";
-                    notice.style.animation = "fadeIn 0.6s ease forwards";
-                    
-                    notice.innerHTML = `
-                        <i class="fa-solid fa-circle-check" style="font-size: 2rem; color: #10b981; margin-bottom: 12px;"></i>
-                        <h4 style="font-family: inherit; font-size: 1.05rem; font-weight: 700; color: #ffffff; margin-bottom: 6px;">Conversational Screening Completed!</h4>
-                        <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.45;">
-                            Your responses have been successfully compiled and analyzed by the AI Evaluation Engine.
-                        </p>
-                        <button onclick="window.location.href='/static/index.html'" class="btn-primary" style="padding: 10px 20px; font-size: 0.85rem; width: auto; font-family: inherit; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; border-radius: 8px; border: none; font-weight: 600; background: linear-gradient(135deg, #7928ca, #0070f3); box-shadow: 0 4px 10px rgba(121, 40, 202, 0.3);">
-                            <i class="fa-solid fa-arrow-left"></i> Return to Workspace Dashboard
-                        </button>
-                    `;
-                    chatStream.appendChild(notice);
-                    scrollChatBottom();
-                }, 1000);
-            }
-        }
-    };
-    
-    ws.onclose = (event) => {
-        console.log("WebSocket screening room closed.", event.code);
-        // If the connection closed abruptly or prematurely (not completed), recover UI
-        if (ws !== null) {
-            console.warn("WebSocket closed unexpectedly:", event);
-            alert("Screening connection closed unexpectedly or failed. Please verify that the Candidate ID exists and the backend server is running.");
-            cleanupSessionState();
-        }
-    };
-    
-    ws.onerror = (err) => {
-        console.error("WebSocket encountered an error:", err);
-        alert("WebSocket connection failed. The server might be down or Candidate ID invalid.");
+            startHTTPFallbackSession();
+        };
+    } catch (e) {
+        console.error("Failed to construct WebSocket, falling back to HTTP REST:", e);
+        useHTTPFallback = true;
+        startHTTPFallbackSession();
+    }
+}
+
+function handleIncomingData(data) {
+    if (data.error) {
+        alert(`Error: ${data.error}`);
         cleanupSessionState();
-    };
+        return;
+    }
+    
+    // Handle Step transitions
+    if (data.step) {
+        updateStepProgressBar(data.step);
+    }
+    
+    // Handle Character Streaming
+    if (data.stream_start) {
+        disableInput(true);
+        showTypingIndicator(false);
+        createAIBubble();
+        
+        // Cancel active speech and reset TTS tracking indices
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+        }
+        spokenTextLength = 0;
+    } else if (data.char) {
+        appendAICharacter(data.char);
+    } else if (data.stream_end) {
+        disableInput(false);
+        
+        // Speak any trailing text fragment that didn't end with a sentence delimiter
+        if (currentAIBubble) {
+            const remainingText = currentAIBubble.textContent.substring(spokenTextLength).trim();
+            if (remainingText) {
+                speakSentence(remainingText);
+            }
+        }
+        currentAIBubble = null;
+        
+        // If final step wrap-up is reached, lock inputs permanently
+        if (data.step === 4) {
+            disableInput(true, true);
+            // Close socket and stop tracks gracefully
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            if (audioInterval) clearInterval(audioInterval);
+            
+            // Add visual outcome card guiding back
+            setTimeout(() => {
+                const chatStream = document.getElementById("chat-stream");
+                const notice = document.createElement("div");
+                notice.className = "glass-panel";
+                notice.style.padding = "20px";
+                notice.style.marginTop = "16px";
+                notice.style.textAlign = "center";
+                notice.style.borderColor = "rgba(16, 185, 129, 0.25)";
+                notice.style.background = "rgba(16, 185, 129, 0.03)";
+                notice.style.animation = "fadeIn 0.6s ease forwards";
+                
+                notice.innerHTML = `
+                    <i class="fa-solid fa-circle-check" style="font-size: 2rem; color: #10b981; margin-bottom: 12px;"></i>
+                    <h4 style="font-family: inherit; font-size: 1.05rem; font-weight: 700; color: #ffffff; margin-bottom: 6px;">Conversational Screening Completed!</h4>
+                    <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.45;">
+                        Your responses have been successfully compiled and analyzed by the AI Evaluation Engine.
+                    </p>
+                    <button onclick="window.location.href='/static/index.html'" class="btn-primary" style="padding: 10px 20px; font-size: 0.85rem; width: auto; font-family: inherit; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; border-radius: 8px; border: none; font-weight: 600; background: linear-gradient(135deg, #7928ca, #0070f3); box-shadow: 0 4px 10px rgba(121, 40, 202, 0.3);">
+                        <i class="fa-solid fa-arrow-left"></i> Return to Workspace Dashboard
+                    </button>
+                `;
+                chatStream.appendChild(notice);
+                scrollChatBottom();
+            }, 1000);
+        }
+    }
+}
+
+async function startHTTPFallbackSession() {
+    console.log("Starting HTTP fallback session...");
+    interviewActive = true;
+    
+    // Auto-start microphone for a hands-free voice experience!
+    setTimeout(() => {
+        if (!isListening) {
+            toggleSpeechRecognition();
+        }
+    }, 1000);
+    
+    try {
+        const response = await fetch(`${API_BASE}/api/interviews/chat/${currentCandidateId}/${currentJobId}`);
+        if (!response.ok) {
+            throw new Error("Failed to retrieve initial question from server.");
+        }
+        const data = await response.json();
+        
+        // Render existing transcript bubbles if they exist
+        if (data.transcript && data.transcript.length > 0) {
+            const chatStream = document.getElementById("chat-stream");
+            chatStream.innerHTML = "";
+            
+            data.transcript.forEach(msg => {
+                if (msg.role === "ai") {
+                    createAIBubble();
+                    appendAICharacter(msg.text);
+                    currentAIBubble = null;
+                } else if (msg.role === "candidate") {
+                    renderCandidateBubble(msg.text);
+                }
+            });
+            
+            if (data.status === "completed") {
+                disableInput(true, true);
+                return;
+            }
+            
+            // If the last message was from candidate, we are waiting for AI response
+            const lastMsg = data.transcript[data.transcript.length - 1];
+            if (lastMsg.role === "candidate") {
+                handleHTTPChatMessage("");
+            }
+        } else {
+            // First time loading, type out the greeting
+            triggerLocalStreaming(data.step || 1, data.text);
+        }
+    } catch (err) {
+        console.error("Failed to start HTTP fallback session:", err);
+        alert("Failed to connect to the screening server. Please verify that the Candidate ID exists.");
+        cleanupSessionState();
+    }
+}
+
+async function handleHTTPChatMessage(message) {
+    disableInput(true);
+    showTypingIndicator(true);
+    
+    try {
+        const response = await fetch(`${API_BASE}/api/interviews/chat/${currentCandidateId}/${currentJobId}`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ message })
+        });
+        
+        if (!response.ok) {
+            throw new Error("HTTP chat request failed");
+        }
+        
+        const data = await response.json();
+        triggerLocalStreaming(data.step, data.text);
+    } catch (err) {
+        console.error("HTTP chat error:", err);
+        alert("Failed to communicate with the screening server. Please try again.");
+        cleanupSessionState();
+    }
+}
+
+function triggerLocalStreaming(step, text) {
+    handleIncomingData({ stream_start: true, step });
+    
+    let i = 0;
+    const interval = setInterval(() => {
+        if (i < text.length) {
+            handleIncomingData({ char: text[i], step });
+            i++;
+        } else {
+            clearInterval(interval);
+            handleIncomingData({ stream_end: true, step });
+        }
+    }, 15);
+}
 }
 
 function cleanupSessionState() {
@@ -557,9 +666,13 @@ function sendCandidateMessage() {
     // Display client bubble
     renderCandidateBubble(message);
     
-    // Send answer over WebSocket
-    if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(message);
+    // Send answer over WebSocket or HTTP fallback
+    if (useHTTPFallback) {
+        handleHTTPChatMessage(message);
+    } else {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(message);
+        }
     }
     
     textInput.value = "";
