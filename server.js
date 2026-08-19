@@ -912,8 +912,8 @@ app.get('/api/interviews/results/:job_id', authenticateJWT, async (req, res) => 
 
 // POST proctoring warning
 app.post('/api/interviews/proctor/warning/:cand_id/:job_id', async (req, res) => {
-    const candId = req.params.cand_id;
-    const jobId = req.params.job_id;
+    const candId = isNaN(req.params.cand_id) ? req.params.cand_id : parseInt(req.params.cand_id, 10);
+    const jobId = isNaN(req.params.job_id) ? req.params.job_id : parseInt(req.params.job_id, 10);
     const { type } = req.body;
     
     try {
@@ -965,19 +965,35 @@ function isValidIntroduction(text) {
 
 // GET interview state / start session
 app.get('/api/interviews/chat/:cand_id/:job_id', async (req, res) => {
-    const candId = req.params.cand_id;
-    const jobId = req.params.job_id;
+    const candId = isNaN(req.params.cand_id) ? req.params.cand_id : parseInt(req.params.cand_id, 10);
+    const jobId = isNaN(req.params.job_id) ? req.params.job_id : parseInt(req.params.job_id, 10);
     
     try {
         // Fetch candidate & job
-        const { data: cData, error: cErr } = await supabase.from('candidates').select().eq('id', candId);
+        let { data: cData, error: cErr } = await supabase.from('candidates').select().eq('id', candId);
+        if ((!cData || cData.length === 0) && candId === 1) {
+            console.log("Candidate 1 not found. Attempting to seed Supabase database...");
+            await seedSupabaseIfNeeded();
+            const retry = await supabase.from('candidates').select().eq('id', candId);
+            cData = retry.data;
+            cErr = retry.error;
+        }
         if (cErr || !cData || cData.length === 0) {
+            console.error("Candidate fetch error or not found:", cErr, cData);
             return res.status(404).json({ detail: 'Candidate not found' });
         }
         const candidate = cData[0];
         
-        const { data: jobData, error: jobErr } = await supabase.from('jobs').select().eq('id', jobId);
+        let { data: jobData, error: jobErr } = await supabase.from('jobs').select().eq('id', jobId);
+        if ((!jobData || jobData.length === 0) && jobId === 1) {
+            console.log("Job 1 not found. Attempting to seed Supabase database...");
+            await seedSupabaseIfNeeded();
+            const retry = await supabase.from('jobs').select().eq('id', jobId);
+            jobData = retry.data;
+            jobErr = retry.error;
+        }
         if (jobErr || !jobData || jobData.length === 0) {
+            console.error("Job fetch error or not found:", jobErr, jobData);
             return res.status(404).json({ detail: 'Job workspace not found' });
         }
         const job = jobData[0];
@@ -1079,8 +1095,8 @@ async function checkTechnicalFollowup(question, answer) {
 
 // POST interview reply message
 app.post('/api/interviews/chat/:cand_id/:job_id', async (req, res) => {
-    const candId = req.params.cand_id;
-    const jobId = req.params.job_id;
+    const candId = isNaN(req.params.cand_id) ? req.params.cand_id : parseInt(req.params.cand_id, 10);
+    const jobId = isNaN(req.params.job_id) ? req.params.job_id : parseInt(req.params.job_id, 10);
     const { message } = req.body;
     
     if (!message) {
@@ -1298,6 +1314,9 @@ if (require.main === module) {
         console.log(`AI Recruiter Node.js backend is running at http://localhost:${PORT}`);
         await seedSupabaseIfNeeded();
     });
+} else {
+    // When running as a serverless function (e.g. on Vercel), trigger database seeding check on startup
+    seedSupabaseIfNeeded();
 }
 
 module.exports = app;
